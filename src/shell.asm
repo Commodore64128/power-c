@@ -1031,7 +1031,7 @@ j0E8C   LDA #$01
         JMP ROM_CLRCHN          ; $FFCC - restore default devices          
 
         ; error messages
-d0E9E   .TEXT "COMMAND NOT FOUND", $0D, $00
+d0E9E   .TEXT "command not found", $0D, $00
 d0EB1   .TEXT "CAN'T OPEN INPUT FILE",$0D, $00
         .TEXT "CAN'T OPEN OUTPUT FILE", $0D, $00
         .TEXT "PRINTER NOT PRESENT", $0D, $00

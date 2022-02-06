@@ -1,7 +1,7 @@
 
 ; 64tass Turbo Assembler Macro V1.53.1515 listing file
 ; 64tass -a -l target\shell.lbl -L target\shell.lst -o target\shell src\shell.asm
-; Sat Feb 05 17:02:51 2022
+; Sat Feb 05 17:06:37 2022
 
 ;Offset	;Hex		;Monitor	;Source
 
@@ -894,8 +894,8 @@
 .0e96	a9 0f		lda #$0f	        LDA #$0F
 .0e98	20 c3 ff	jsr $ffc3	        JSR ROM_CLOSE           ; $FFC3 - close a logical file
 .0e9b	4c cc ff	jmp $ffcc	        JMP ROM_CLRCHN          ; $FFCC - restore default devices
->0e9e	c3 cf cd cd c1 ce c4 20		d0E9E   .TEXT "COMMAND NOT FOUND", $0D, $00
->0ea6	ce cf d4 20 c6 cf d5 ce c4 0d 00
+>0e9e	43 4f 4d 4d 41 4e 44 20		d0E9E   .TEXT "command not found", $0D, $00
+>0ea6	4e 4f 54 20 46 4f 55 4e 44 0d 00
 >0eb1	c3 c1 ce 27 d4 20 cf d0		d0EB1   .TEXT "CAN'T OPEN INPUT FILE",$0D, $00
 >0eb9	c5 ce 20 c9 ce d0 d5 d4 20 c6 c9 cc c5 0d 00
 >0ec8	c3 c1 ce 27 d4 20 cf d0		        .TEXT "CAN'T OPEN OUTPUT FILE", $0D, $00
