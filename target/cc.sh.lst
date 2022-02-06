@@ -1,0 +1,415 @@
+
+; 64tass Turbo Assembler Macro V1.53.1515 listing file
+; 64tass -a -l target\cc.sh.lbl -L target\cc.sh.lst -o target\cc.sh src\cc.sh.asm
+; Sun Feb 06 10:41:21 2022
+
+;Offset	;Hex		;Monitor	;Source
+
+;******  Processing input file: src\cc.sh.asm
+
+=$01					a01 = $01
+=$4b					a4B = $4B
+=$4c					a4C = $4C
+=$4d					a4D = $4D
+=$4e					a4E = $4E
+=$fe					aFE = $FE
+=$4b					p4B = $4B
+=$4d					p4D = $4D
+=$033c					a033C = $033C
+=$033e					a033E = $033E
+=$033f					a033F = $033F
+=$03ff					a03FF = $03FF
+=$17fa					a17FA = $17FA
+=$17fb					a17FB = $17FB
+=$17fc					a17FC = $17FC
+=$17fd					a17FD = $17FD
+=$2000					e2000 = $2000
+=$ffba					ROM_SETLFS = $FFBA
+=$ffbd					ROM_SETNAM = $FFBD
+=$ffc0					ROM_OPEN = $FFC0
+=$ffc3					ROM_CLOSE = $FFC3
+=$ffc6					ROM_CHKIN = $FFC6
+=$ffc9					ROM_CHKOUT = $FFC9
+=$ffcc					ROM_CLRCHN = $FFCC
+=$ffcf					ROM_CHRIN = $FFCF
+=$ffd2					ROM_CHROUT = $FFD2
+=$ffd5					ROM_LOAD = $FFD5
+=$ffe4					ROM_GETIN = $FFE4
+.1800	4c 06 18	jmp $1806	        JMP j1806
+.1803	4c 5d 1a	jmp $1a5d	        JMP j1A5D
+.1806	ad 3e 03	lda $033e	j1806   LDA a033E
+.1809	85 4b		sta $4b		        STA a4B
+.180b	ad 3f 03	lda $033f	        LDA a033F
+.180e	85 4c		sta $4c		        STA a4C
+.1810	a9 01		lda #$01	        LDA #$01
+.1812	8d 27 1c	sta $1c27	        STA a1C27
+.1815	a9 52		lda #$52	        LDA #$52
+.1817	8d ff 03	sta $03ff	        STA a03FF
+.181a	ce 3c 03	dec $033c	j181A   DEC a033C
+.181d	f0 4a		beq $1869	        BEQ b1869
+.181f	18		clc		        CLC
+.1820	a5 4b		lda $4b		        LDA a4B
+.1822	69 02		adc #$02	        ADC #$02
+.1824	85 4b		sta $4b		        STA a4B
+.1826	90 02		bcc $182a	        BCC b182A
+.1828	e6 4c		inc $4c		        INC a4C
+.182a	a0 01		ldy #$01	b182A   LDY #$01
+.182c	b1 4b		lda ($4b),y	        LDA (p4B),Y
+.182e	85 4e		sta $4e		        STA a4E
+.1830	88		dey		        DEY
+.1831	b1 4b		lda ($4b),y	        LDA (p4B),Y
+.1833	85 4d		sta $4d		        STA a4D
+.1835	b1 4d		lda ($4d),y	        LDA (p4D),Y
+.1837	c9 2d		cmp #$2d	        CMP #$2D
+.1839	d0 2e		bne $1869	        BNE b1869
+.183b	c8		iny		j183B   INY
+.183c	b1 4d		lda ($4d),y	        LDA (p4D),Y
+.183e	f0 26		beq $1866	        BEQ b1866
+.1840	c9 50		cmp #$50	        CMP #$50
+.1842	d0 08		bne $184c	        BNE b184C
+.1844	a9 00		lda #$00	        LDA #$00
+.1846	8d 27 1c	sta $1c27	        STA a1C27
+.1849	4c 3b 18	jmp $183b	        JMP j183B
+.184c	c9 41		cmp #$41	b184C   CMP #$41
+.184e	d0 06		bne $1856	        BNE b1856
+.1850	8d ff 03	sta $03ff	        STA a03FF
+.1853	4c 3b 18	jmp $183b	        JMP j183B
+.1856	c9 53		cmp #$53	b1856   CMP #$53
+.1858	d0 06		bne $1860	        BNE b1860
+.185a	8d ff 03	sta $03ff	        STA a03FF
+.185d	4c 3b 18	jmp $183b	        JMP j183B
+.1860	4c f5 1a	jmp $1af5	b1860   JMP j1AF5
+.1863	4c 3b 18	jmp $183b	        JMP j183B
+.1866	4c 1a 18	jmp $181a	b1866   JMP j181A
+.1869	ad 3c 03	lda $033c	b1869   LDA a033C
+.186c	c9 01		cmp #$01	        CMP #$01
+.186e	f0 03		beq $1873	        BEQ b1873
+.1870	4c f5 1a	jmp $1af5	        JMP j1AF5
+.1873	a0 00		ldy #$00	b1873   LDY #$00
+.1875	a2 02		ldx #$02	        LDX #$02
+.1877	b1 4d		lda ($4d),y	b1877   LDA (p4D),Y
+.1879	9d 13 1c	sta $1c13,x	        STA f1C13,X
+.187c	f0 04		beq $1882	        BEQ b1882
+.187e	c8		iny		        INY
+.187f	e8		inx		        INX
+.1880	d0 f5		bne $1877	        BNE b1877
+.1882	8e 12 1c	stx $1c12	b1882   STX a1C12
+.1885	88		dey		        DEY
+.1886	b1 4d		lda ($4d),y	        LDA (p4D),Y
+.1888	c9 43		cmp #$43	        CMP #$43
+.188a	d0 07		bne $1893	        BNE b1893
+.188c	88		dey		        DEY
+.188d	b1 4d		lda ($4d),y	        LDA (p4D),Y
+.188f	c9 2e		cmp #$2e	        CMP #$2E
+.1891	f0 07		beq $189a	        BEQ b189A
+.1893	a2 9d		ldx #$9d	b1893   LDX #$9D
+.1895	a0 1b		ldy #$1b	        LDY #$1B
+.1897	4c f9 1a	jmp $1af9	        JMP j1AF9
+.189a	ad fd 17	lda $17fd	b189A   LDA a17FD
+.189d	18		clc		        CLC
+.189e	69 30		adc #$30	        ADC #$30
+.18a0	8d 13 1c	sta $1c13	        STA f1C13
+.18a3	8d d2 1b	sta $1bd2	        STA a1BD2
+.18a6	8d de 1b	sta $1bde	        STA a1BDE
+.18a9	8d ed 1b	sta $1bed	        STA a1BED
+.18ac	ad fb 17	lda $17fb	        LDA a17FB
+.18af	69 30		adc #$30	        ADC #$30
+.18b1	8d cd 1b	sta $1bcd	        STA a1BCD
+.18b4	8d fc 1b	sta $1bfc	        STA a1BFC
+.18b7	8d 06 1c	sta $1c06	        STA a1C06
+.18ba	a9 02		lda #$02	        LDA #$02
+.18bc	ae fa 17	ldx $17fa	        LDX a17FA
+.18bf	a8		tay		        TAY
+.18c0	20 ba ff	jsr $ffba	        JSR ROM_SETLFS ;$FFBA - set file parameters
+.18c3	a9 0a		lda #$0a	        LDA #$0A
+.18c5	a2 fc		ldx #$fc	        LDX #$FC
+.18c7	a0 1b		ldy #$1b	        LDY #$1B
+.18c9	20 bd ff	jsr $ffbd	        JSR ROM_SETNAM ;$FFBD - set file name
+.18cc	a9 00		lda #$00	        LDA #$00
+.18ce	20 d5 ff	jsr $ffd5	        JSR ROM_LOAD ;$FFD5 - load after call SETLFS,SETNAM
+.18d1	90 07		bcc $18da	        BCC b18DA
+.18d3	a2 27		ldx #$27	        LDX #$27
+.18d5	a0 1b		ldy #$1b	        LDY #$1B
+.18d7	4c f9 1a	jmp $1af9	        JMP j1AF9
+.18da	ad fc 17	lda $17fc	b18DA   LDA a17FC
+.18dd	85 fe		sta $fe		        STA aFE
+.18df	20 00 20	jsr $2000	        JSR e2000
+.18e2	a9 02		lda #$02	        LDA #$02
+.18e4	20 c3 ff	jsr $ffc3	        JSR ROM_CLOSE ;$FFC3 - close a logical file
+.18e7	a9 0f		lda #$0f	        LDA #$0F
+.18e9	20 c3 ff	jsr $ffc3	        JSR ROM_CLOSE ;$FFC3 - close a logical file
+.18ec	a5 fe		lda $fe		        LDA aFE
+.18ee	f0 08		beq $18f8	        BEQ b18F8
+.18f0	20 29 1a	jsr $1a29	        JSR s1A29
+.18f3	a9 0f		lda #$0f	        LDA #$0F
+.18f5	4c c3 ff	jmp $ffc3	        JMP ROM_CLOSE ;$FFC3 - close a logical file
+.18f8	a2 71		ldx #$71	b18F8   LDX #$71
+.18fa	a0 1b		ldy #$1b	        LDY #$1B
+.18fc	20 e4 1a	jsr $1ae4	        JSR s1AE4
+.18ff	20 29 1a	jsr $1a29	        JSR s1A29
+.1902	a9 02		lda #$02	        LDA #$02
+.1904	ae fa 17	ldx $17fa	        LDX a17FA
+.1907	a8		tay		        TAY
+.1908	20 ba ff	jsr $ffba	        JSR ROM_SETLFS ;$FFBA - set file parameters
+.190b	a9 0c		lda #$0c	        LDA #$0C
+.190d	a2 06		ldx #$06	        LDX #$06
+.190f	a0 1c		ldy #$1c	        LDY #$1C
+.1911	20 bd ff	jsr $ffbd	        JSR ROM_SETNAM ;$FFBD - set file name
+.1914	a9 00		lda #$00	        LDA #$00
+.1916	20 d5 ff	jsr $ffd5	        JSR ROM_LOAD ;$FFD5 - load after call SETLFS,SETNAM
+.1919	90 1b		bcc $1936	        BCC b1936
+.191b	a2 0f		ldx #$0f	        LDX #$0F
+.191d	20 c6 ff	jsr $ffc6	        JSR ROM_CHKIN ;$FFC6 - open channel for input
+.1920	20 cf ff	jsr $ffcf	b1920   JSR ROM_CHRIN ;$FFCF - input character
+.1923	48		pha		        PHA
+.1924	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.1927	68		pla		        PLA
+.1928	c9 0d		cmp #$0d	        CMP #$0D
+.192a	d0 f4		bne $1920	        BNE b1920
+.192c	20 cc ff	jsr $ffcc	        JSR ROM_CLRCHN ;$FFCC - restore default devices
+.192f	a2 27		ldx #$27	        LDX #$27
+.1931	a0 1b		ldy #$1b	        LDY #$1B
+.1933	4c f9 1a	jmp $1af9	        JMP j1AF9
+.1936	a2 88		ldx #$88	b1936   LDX #$88
+.1938	a0 1b		ldy #$1b	        LDY #$1B
+.193a	20 e4 1a	jsr $1ae4	        JSR s1AE4
+.193d	a2 0f		ldx #$0f	        LDX #$0F
+.193f	20 c9 ff	jsr $ffc9	        JSR ROM_CHKOUT ;$FFC9 - open channel for output
+.1942	a2 d1		ldx #$d1	        LDX #$D1
+.1944	a0 1b		ldy #$1b	        LDY #$1B
+.1946	20 f9 1a	jsr $1af9	        JSR j1AF9
+.1949	20 d0 1a	jsr $1ad0	        JSR s1AD0
+.194c	ae 12 1c	ldx $1c12	        LDX a1C12
+.194f	ca		dex		        DEX
+.1950	a9 4f		lda #$4f	        LDA #$4F
+.1952	9d 13 1c	sta $1c13,x	        STA f1C13,X
+.1955	a9 53		lda #$53	        LDA #$53
+.1957	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.195a	a2 13		ldx #$13	        LDX #$13
+.195c	a0 1c		ldy #$1c	        LDY #$1C
+.195e	20 f9 1a	jsr $1af9	        JSR j1AF9
+.1961	a9 0d		lda #$0d	        LDA #$0D
+.1963	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.1966	20 d0 1a	jsr $1ad0	        JSR s1AD0
+.1969	20 cc ff	jsr $ffcc	        JSR ROM_CLRCHN ;$FFCC - restore default devices
+.196c	a9 02		lda #$02	        LDA #$02
+.196e	ae fc 17	ldx $17fc	        LDX a17FC
+.1971	a8		tay		        TAY
+.1972	20 ba ff	jsr $ffba	        JSR ROM_SETLFS ;$FFBA - set file parameters
+.1975	a9 0e		lda #$0e	        LDA #$0E
+.1977	a2 de		ldx #$de	        LDX #$DE
+.1979	a0 1b		ldy #$1b	        LDY #$1B
+.197b	20 bd ff	jsr $ffbd	        JSR ROM_SETNAM ;$FFBD - set file name
+.197e	20 c0 ff	jsr $ffc0	        JSR ROM_OPEN ;$FFC0 - open log.file after SETLFS,SETNAM
+.1981	a2 0f		ldx #$0f	        LDX #$0F
+.1983	20 c6 ff	jsr $ffc6	        JSR ROM_CHKIN ;$FFC6 - open channel for input
+.1986	20 cf ff	jsr $ffcf	        JSR ROM_CHRIN ;$FFCF - input character
+.1989	c9 30		cmp #$30	        CMP #$30
+.198b	d0 05		bne $1992	        BNE b1992
+.198d	20 cf ff	jsr $ffcf	        JSR ROM_CHRIN ;$FFCF - input character
+.1990	c9 30		cmp #$30	        CMP #$30
+.1992	08		php		b1992   PHP
+.1993	20 cf ff	jsr $ffcf	b1993   JSR ROM_CHRIN ;$FFCF - input character
+.1996	c9 0d		cmp #$0d	        CMP #$0D
+.1998	d0 f9		bne $1993	        BNE b1993
+.199a	20 cc ff	jsr $ffcc	        JSR ROM_CLRCHN ;$FFCC - restore default devices
+.199d	28		plp		        PLP
+.199e	f0 11		beq $19b1	        BEQ b19B1
+.19a0	a2 b3		ldx #$b3	        LDX #$B3
+.19a2	a0 1b		ldy #$1b	        LDY #$1B
+.19a4	20 f9 1a	jsr $1af9	        JSR j1AF9
+.19a7	a9 02		lda #$02	        LDA #$02
+.19a9	20 c3 ff	jsr $ffc3	        JSR ROM_CLOSE ;$FFC3 - close a logical file
+.19ac	a9 0f		lda #$0f	        LDA #$0F
+.19ae	4c c3 ff	jmp $ffc3	        JMP ROM_CLOSE ;$FFC3 - close a logical file
+.19b1	a9 03		lda #$03	b19B1   LDA #$03
+.19b3	ae fc 17	ldx $17fc	        LDX a17FC
+.19b6	a8		tay		        TAY
+.19b7	20 ba ff	jsr $ffba	        JSR ROM_SETLFS ;$FFBA - set file parameters
+.19ba	a9 0e		lda #$0e	        LDA #$0E
+.19bc	a2 ed		ldx #$ed	        LDX #$ED
+.19be	a0 1b		ldy #$1b	        LDY #$1B
+.19c0	20 bd ff	jsr $ffbd	        JSR ROM_SETNAM ;$FFBD - set file name
+.19c3	20 c0 ff	jsr $ffc0	        JSR ROM_OPEN ;$FFC0 - open log.file after SETLFS,SETNAM
+.19c6	20 00 20	jsr $2000	        JSR e2000
+.19c9	a9 03		lda #$03	        LDA #$03
+.19cb	20 c3 ff	jsr $ffc3	        JSR ROM_CLOSE ;$FFC3 - close a logical file
+.19ce	a9 02		lda #$02	        LDA #$02
+.19d0	20 c3 ff	jsr $ffc3	        JSR ROM_CLOSE ;$FFC3 - close a logical file
+.19d3	a2 0f		ldx #$0f	        LDX #$0F
+.19d5	20 c9 ff	jsr $ffc9	        JSR ROM_CHKOUT ;$FFC9 - open channel for output
+.19d8	a5 fe		lda $fe		        LDA aFE
+.19da	f0 03		beq $19df	        BEQ b19DF
+.19dc	4c 17 1a	jmp $1a17	        JMP j1A17
+.19df	a9 43		lda #$43	b19DF   LDA #$43
+.19e1	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.19e4	a2 13		ldx #$13	        LDX #$13
+.19e6	a0 1c		ldy #$1c	        LDY #$1C
+.19e8	20 f9 1a	jsr $1af9	        JSR j1AF9
+.19eb	a9 3d		lda #$3d	        LDA #$3D
+.19ed	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.19f0	a2 00		ldx #$00	        LDX #$00
+.19f2	bd ed 1b	lda $1bed,x	b19F2   LDA a1BED,X
+.19f5	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.19f8	e8		inx		        INX
+.19f9	e0 0a		cpx #$0a	        CPX #$0A
+.19fb	d0 f5		bne $19f2	        BNE b19F2
+.19fd	a9 2c		lda #$2c	        LDA #$2C
+.19ff	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.1a02	a2 00		ldx #$00	        LDX #$00
+.1a04	bd de 1b	lda $1bde,x	b1A04   LDA a1BDE,X
+.1a07	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.1a0a	e8		inx		        INX
+.1a0b	e0 0a		cpx #$0a	        CPX #$0A
+.1a0d	d0 f5		bne $1a04	        BNE b1A04
+.1a0f	a9 0d		lda #$0d	        LDA #$0D
+.1a11	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.1a14	20 d0 1a	jsr $1ad0	        JSR s1AD0
+.1a17	a2 d1		ldx #$d1	j1A17   LDX #$D1
+.1a19	a0 1b		ldy #$1b	        LDY #$1B
+.1a1b	20 f9 1a	jsr $1af9	        JSR j1AF9
+.1a1e	20 d0 1a	jsr $1ad0	        JSR s1AD0
+.1a21	20 cc ff	jsr $ffcc	        JSR ROM_CLRCHN ;$FFCC - restore default devices
+.1a24	a9 0f		lda #$0f	        LDA #$0F
+.1a26	4c c3 ff	jmp $ffc3	        JMP ROM_CLOSE ;$FFC3 - close a logical file
+.1a29	ae fa 17	ldx $17fa	s1A29   LDX a17FA
+.1a2c	ec fc 17	cpx $17fc	        CPX a17FC
+.1a2f	f0 1a		beq $1a4b	        BEQ b1A4B
+.1a31	a9 0f		lda #$0f	        LDA #$0F
+.1a33	a8		tay		        TAY
+.1a34	20 ba ff	jsr $ffba	        JSR ROM_SETLFS ;$FFBA - set file parameters
+.1a37	a9 01		lda #$01	        LDA #$01
+.1a39	a2 cc		ldx #$cc	        LDX #$CC
+.1a3b	a0 1b		ldy #$1b	        LDY #$1B
+.1a3d	20 bd ff	jsr $ffbd	        JSR ROM_SETNAM ;$FFBD - set file name
+.1a40	20 c0 ff	jsr $ffc0	        JSR ROM_OPEN ;$FFC0 - open log.file after SETLFS,SETNAM
+.1a43	a9 0f		lda #$0f	        LDA #$0F
+.1a45	20 c3 ff	jsr $ffc3	        JSR ROM_CLOSE ;$FFC3 - close a logical file
+.1a48	ae fc 17	ldx $17fc	        LDX a17FC
+.1a4b	a9 0f		lda #$0f	b1A4B   LDA #$0F
+.1a4d	a8		tay		        TAY
+.1a4e	20 ba ff	jsr $ffba	        JSR ROM_SETLFS ;$FFBA - set file parameters
+.1a51	a9 01		lda #$01	        LDA #$01
+.1a53	a2 cc		ldx #$cc	        LDX #$CC
+.1a55	a0 1b		ldy #$1b	        LDY #$1B
+.1a57	20 bd ff	jsr $ffbd	        JSR ROM_SETNAM ;$FFBD - set file name
+.1a5a	4c c0 ff	jmp $ffc0	        JMP ROM_OPEN ;$FFC0 - open log.file after SETLFS,SETNAM
+.1a5d	a5 01		lda $01		j1A5D   LDA a01
+.1a5f	48		pha		        PHA
+.1a60	09 07		ora #$07	        ORA #$07
+.1a62	85 01		sta $01		        STA a01
+.1a64	58		cli		        CLI
+.1a65	a2 5b		ldx #$5b	        LDX #$5B
+.1a67	a0 1b		ldy #$1b	        LDY #$1B
+.1a69	20 e4 1a	jsr $1ae4	        JSR s1AE4
+.1a6c	ad d2 1b	lda $1bd2	        LDA a1BD2
+.1a6f	8d cd 1b	sta $1bcd	        STA a1BCD
+.1a72	a9 0f		lda #$0f	        LDA #$0F
+.1a74	ae fc 17	ldx $17fc	        LDX a17FC
+.1a77	a8		tay		        TAY
+.1a78	20 ba ff	jsr $ffba	        JSR ROM_SETLFS ;$FFBA - set file parameters
+.1a7b	a9 03		lda #$03	        LDA #$03
+.1a7d	a2 cc		ldx #$cc	        LDX #$CC
+.1a7f	a0 1b		ldy #$1b	        LDY #$1B
+.1a81	20 bd ff	jsr $ffbd	        JSR ROM_SETNAM ;$FFBD - set file name
+.1a84	20 c0 ff	jsr $ffc0	        JSR ROM_OPEN ;$FFC0 - open log.file after SETLFS,SETNAM
+.1a87	a9 02		lda #$02	        LDA #$02
+.1a89	ae fc 17	ldx $17fc	        LDX a17FC
+.1a8c	a8		tay		        TAY
+.1a8d	20 ba ff	jsr $ffba	        JSR ROM_SETLFS ;$FFBA - set file parameters
+.1a90	a2 13		ldx #$13	        LDX #$13
+.1a92	a0 1c		ldy #$1c	        LDY #$1C
+.1a94	ad 12 1c	lda $1c12	        LDA a1C12
+.1a97	20 bd ff	jsr $ffbd	        JSR ROM_SETNAM ;$FFBD - set file name
+.1a9a	20 c0 ff	jsr $ffc0	        JSR ROM_OPEN ;$FFC0 - open log.file after SETLFS,SETNAM
+.1a9d	b0 22		bcs $1ac1	        BCS b1AC1
+.1a9f	a2 0f		ldx #$0f	        LDX #$0F
+.1aa1	20 c6 ff	jsr $ffc6	        JSR ROM_CHKIN ;$FFC6 - open channel for input
+.1aa4	20 cf ff	jsr $ffcf	        JSR ROM_CHRIN ;$FFCF - input character
+.1aa7	c9 30		cmp #$30	        CMP #$30
+.1aa9	d0 03		bne $1aae	        BNE b1AAE
+.1aab	20 cf ff	jsr $ffcf	        JSR ROM_CHRIN ;$FFCF - input character
+.1aae	48		pha		b1AAE   PHA
+.1aaf	20 cf ff	jsr $ffcf	b1AAF   JSR ROM_CHRIN ;$FFCF - input character
+.1ab2	c9 0d		cmp #$0d	        CMP #$0D
+.1ab4	d0 f9		bne $1aaf	        BNE b1AAF
+.1ab6	20 cc ff	jsr $ffcc	        JSR ROM_CLRCHN ;$FFCC - restore default devices
+.1ab9	68		pla		        PLA
+.1aba	c9 30		cmp #$30	        CMP #$30
+.1abc	d0 03		bne $1ac1	        BNE b1AC1
+.1abe	18		clc		        CLC
+.1abf	90 0a		bcc $1acb	        BCC b1ACB
+.1ac1	a9 02		lda #$02	b1AC1   LDA #$02
+.1ac3	20 c3 ff	jsr $ffc3	        JSR ROM_CLOSE ;$FFC3 - close a logical file
+.1ac6	a2 43		ldx #$43	        LDX #$43
+.1ac8	a0 1b		ldy #$1b	        LDY #$1B
+.1aca	38		sec		        SEC
+.1acb	78		sei		b1ACB   SEI
+.1acc	68		pla		        PLA
+.1acd	85 01		sta $01		        STA a01
+.1acf	60		rts		        RTS
+.1ad0	a2 0f		ldx #$0f	s1AD0   LDX #$0F
+.1ad2	20 c6 ff	jsr $ffc6	        JSR ROM_CHKIN ;$FFC6 - open channel for input
+.1ad5	20 cf ff	jsr $ffcf	b1AD5   JSR ROM_CHRIN ;$FFCF - input character
+.1ad8	c9 0d		cmp #$0d	        CMP #$0D
+.1ada	d0 f9		bne $1ad5	        BNE b1AD5
+.1adc	20 cc ff	jsr $ffcc	        JSR ROM_CLRCHN ;$FFCC - restore default devices
+.1adf	a2 0f		ldx #$0f	        LDX #$0F
+.1ae1	4c c9 ff	jmp $ffc9	        JMP ROM_CHKOUT ;$FFC9 - open channel for output
+.1ae4	ad 27 1c	lda $1c27	s1AE4   LDA a1C27
+.1ae7	d0 01		bne $1aea	        BNE b1AEA
+.1ae9	60		rts		        RTS
+.1aea	20 f9 1a	jsr $1af9	b1AEA   JSR j1AF9
+.1aed	20 e4 ff	jsr $ffe4	b1AED   JSR ROM_GETIN ;$FFE4 - get a byte from channel
+.1af0	c9 0d		cmp #$0d	        CMP #$0D
+.1af2	d0 f9		bne $1aed	        BNE b1AED
+.1af4	60		rts		        RTS
+.1af5	a2 0a		ldx #$0a	j1AF5   LDX #<p1B0A
+.1af7	a0 1b		ldy #$1b	        LDY #>p1B0A
+.1af9	86 4b		stx $4b		j1AF9   STX a4B
+.1afb	84 4c		sty $4c		        STY a4C
+.1afd	a0 00		ldy #$00	        LDY #$00
+.1aff	b1 4b		lda ($4b),y	b1AFF   LDA (p4B),Y
+.1b01	f0 06		beq $1b09	        BEQ b1B09
+.1b03	20 d2 ff	jsr $ffd2	        JSR ROM_CHROUT ;$FFD2 - output character
+.1b06	c8		iny		        INY
+.1b07	d0 f6		bne $1aff	        BNE b1AFF
+.1b09	60		rts		b1B09   RTS
+>1b0a	d5 d3 c1 c7 c5 3a 20 20		p1B0A   .TEXT "USAGE:  CC [-PAS] FILENAME", $0D, $0D, $00, "COMPILER DI"
+>1b12	c3 c3 20 5b 2d d0 c1 d3 5d 20 c6 c9 cc c5 ce c1
+>1b22	cd c5 0d 0d 00 c3 cf cd d0 c9 cc c5 d2 20 c4 c9
+>1b32	d3 cb 20 ce cf d4 20 d0		        .TEXT "SK NOT PRESENT", $0D, $0D, $00, "SOURCE FILE NOT FOUND", $0D, $0D
+>1b3a	d2 c5 d3 c5 ce d4 0d 0d 00 d3 cf d5 d2 c3 c5 20
+>1b4a	c6 c9 cc c5 20 ce cf d4 20 c6 cf d5 ce c4 0d 0d
+>1b5a	00 0d c9 ce d3 c5		        .TEXT $00, $0D, "INSE"
+>1b60	d2 d4 20 d3 cf d5 d2 c3		        .TEXT "RT SOURCE DISK", $0D, $0D, $00, $0D, "INSERT COMPILE"
+>1b68	c5 20 c4 c9 d3 cb 0d 0d 00 0d c9 ce d3 c5 d2 d4
+>1b78	20 c3 cf cd d0 c9 cc c5
+>1b80	d2 20 c4 c9 d3 cb 0d 00		        .TEXT "R DISK", $0D, $00, "INSERT OBJECT DISK", $0D, $0D, $00, "NOT A ", $C3, " SOU"
+>1b88	c9 ce d3 c5 d2 d4 20 cf c2 ca c5 c3 d4 20 c4 c9
+>1b98	d3 cb 0d 0d 00 ce cf d4 20 c1 20 c3 20 d3 cf d5
+>1ba8	d2 c3 c5 20 c6 c9 cc c5		        .TEXT "RCE FILE", $0D, $0D, $00, "CAN'T OPEN OBJ"
+>1bb0	0d 0d 00 c3 c1 ce 27 d4 20 cf d0 c5 ce 20 cf c2
+>1bc0	ca
+>1bc1	c5 c3 d4 20 c6 c9 cc c5		        .TEXT "ECT FILE", $0D, $0D, $00, "I"
+>1bc9	0d 0d 00 c9
+>1bcd	30				a1BCD   .TEXT "0"
+>1bce	3a 0d 00 d3			        .TEXT ":", $0D, $00, "S"
+>1bd2	30 3a d8 d8 d8 d4 c5 cd		a1BD2   .TEXT "0:XXXTEMP*", $0D, $00
+>1bda	d0 2a 0d 00
+>1bde	30 3a d8 d8 d8 d4 c5 cd		a1BDE   .TEXT "0:XXXTEMP1,S,W", $00
+>1be6	d0 31 2c d3 2c d7 00
+>1bed	30 3a d8 d8 d8 d4 c5 cd		a1BED   .TEXT "0:XXXTEMP2,S,W", $00
+>1bf5	d0 32 2c d3 2c d7 00
+>1bfc	30 3a c3 cf cd d0 c9 cc		a1BFC   .TEXT "0:COMPILER"
+>1c04	c5 d2
+>1c06	30 3a d4 d2 c1 ce d3 cc		a1C06   .TEXT "0:TRANSLATOR"
+>1c0e	c1 d4 cf d2
+>1c12	00				a1C12   .TEXT $00
+>1c13	30 3a				f1C13   .TEXT "0:"
+>1c15	00 00 00 00 00 00 00 00		        .BYTE $00,$00,$00,$00,$00,$00,$00,$00
+>1c1d	00 00 00 00 00 00 00 00		        .BYTE $00,$00,$00,$00,$00,$00,$00,$00
+>1c25	00 00				        .BYTE $00,$00
+>1c27	00				a1C27   .BYTE $00
+
+;******  End of listing
