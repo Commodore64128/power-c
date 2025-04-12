@@ -2,7 +2,6 @@
 ;
 ; BETTER WORKING POWER C
 ; FOR THE COMMODORE 64/128
-;
 ; SHELL.SH
 ;
 ;**************************************************
