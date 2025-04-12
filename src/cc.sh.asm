@@ -181,8 +181,8 @@ b189A   LDA a17FD              ; Get drive number (ASCII conversion)
         JSR ROM_LOAD           ;$FFD5 - load after call SETLFS,SETNAM    
         BCC b18DA              ; Proceed if load successful
         
-       ; Handle load failure
-       LDX #$27
+        ; Handle load failure
+        LDX #$27
         LDY #$1B
         JMP j1AF9              ; Display error message
 
@@ -190,114 +190,114 @@ b18DA   LDA a17FC              ; Store logical file number
         STA aFE
         JSR e2000              ; Execute compiler code
 
-       ; Close files
+        ; Close files
         LDA #$02
-        JSR ROM_CLOSE       ;$FFC3 - close a logical file             
+        JSR ROM_CLOSE           ;$FFC3 - close a logical file             
         LDA #$0F
-        JSR ROM_CLOSE       ;$FFC3 - close a logical file             
+        JSR ROM_CLOSE           ;$FFC3 - close a logical file             
 
-       ; Check execution success
-       LDA aFE
+        ; Check execution success
+        LDA aFE
         BEQ b18F8
         JSR s1A29
         LDA #$0F
-        JMP ROM_CLOSE        ;$FFC3 - close a logical file             
+        JMP ROM_CLOSE           ;$FFC3 - close a logical file             
 
 ;--------------------------------------------------
 ; LOAD TRANSLATOR FILE
 ;--------------------------------------------------
 b18F8   LDX #$71
         LDY #$1B
-        JSR s1AE4              ; Display waiting message
-        JSR s1A29              ; Prepare compiler disk if needed
+        JSR s1AE4               ; Display waiting message
+        JSR s1A29               ; Prepare compiler disk if needed
 
         LDA #$02
         LDX a17FA
         TAY 
-        JSR ROM_SETLFS        ;$FFBA - set file parameters 
+        JSR ROM_SETLFS          ;$FFBA - set file parameters 
 
-        LDA #$0C              ; Length of filename "TRANSLATOR"
+        LDA #$0C                ; Length of filename "TRANSLATOR"
         LDX #$06
         LDY #$1C
-        JSR ROM_SETNAM        ;$FFBD - set file name  
+        JSR ROM_SETNAM          ;$FFBD - set file name  
 
         LDA #$00
-        JSR ROM_LOAD           ;$FFD5 - load after call SETLFS,SETNAM    
+        JSR ROM_LOAD            ;$FFD5 - load after call SETLFS,SETNAM    
         BCC b1936
 
-       ; Handle load failure
+        ; Handle load failure
         LDX #$0F
-        JSR ROM_CHKIN        ;$FFC6 - open channel for input           
-b1920   JSR ROM_CHRIN        ;$FFCF - input character                  
+        JSR ROM_CHKIN           ;$FFC6 - open channel for input           
+b1920   JSR ROM_CHRIN           ;$FFCF - input character                  
         PHA 
-        JSR ROM_CHROUT        ;$FFD2 - output character                 
+        JSR ROM_CHROUT          ;$FFD2 - output character                 
         PLA 
         CMP #$0D
         BNE b1920
-        JSR ROM_CLRCHN        ;$FFCC - restore default devices          
+        JSR ROM_CLRCHN          ;$FFCC - restore default devices          
         LDX #$27
         LDY #$1B
         JMP j1AF9
 
 b1936   LDX #$88
         LDY #$1B
-        JSR s1AE4              ; Display "TRANSLATING" message
+        JSR s1AE4               ; Display "TRANSLATING" message
 
         LDX #$0F
-        JSR ROM_CHKOUT        ;$FFC9 - open channel for output          
+        JSR ROM_CHKOUT          ;$FFC9 - open channel for output          
         LDX #$D1
         LDY #$1B
         JSR j1AF9
         JSR s1AD0
 
-       ; Set output filename suffix to "O"
+        ; Set output filename suffix to "O"
         LDX a1C12
         DEX 
         LDA #$4F
         STA f1C13,X
 
-        LDA #$53              ; Append character 'S'
-        JSR ROM_CHROUT        ;$FFD2 - output character                 
+        LDA #$53                ; Append character 'S'
+        JSR ROM_CHROUT          ;$FFD2 - output character                 
         
-       LDX #$13
+        LDX #$13
         LDY #$1C
         JSR j1AF9
 
         LDA #$0D
-        JSR ROM_CHROUT        ;$FFD2 - output character                 
+        JSR ROM_CHROUT          ;$FFD2 - output character                 
         
        JSR s1AD0
-        JSR ROM_CLRCHN        ;$FFCC - restore default devices          
+        JSR ROM_CLRCHN          ;$FFCC - restore default devices          
         LDA #$02
         LDX a17FC
         TAY 
-        JSR ROM_SETLFS        ;$FFBA - set file parameters              
+        JSR ROM_SETLFS          ;$FFBA - set file parameters              
         LDA #$0E
         LDX #$DE
         LDY #$1B
-        JSR ROM_SETNAM        ;$FFBD - set file name                    
-        JSR ROM_OPEN        ;$FFC0 - open log.file after SETLFS,SETNAM
+        JSR ROM_SETNAM          ;$FFBD - set file name                    
+        JSR ROM_OPEN            ;$FFC0 - open log.file after SETLFS,SETNAM
         LDX #$0F
-        JSR ROM_CHKIN        ;$FFC6 - open channel for input           
-        JSR ROM_CHRIN        ;$FFCF - input character                  
+        JSR ROM_CHKIN           ;$FFC6 - open channel for input           
+        JSR ROM_CHRIN           ;$FFCF - input character                  
         CMP #$30
         BNE b1992
-        JSR ROM_CHRIN        ;$FFCF - input character                  
+        JSR ROM_CHRIN           ;$FFCF - input character                  
         CMP #$30
 b1992   PHP 
-b1993   JSR ROM_CHRIN        ;$FFCF - input character                  
+b1993   JSR ROM_CHRIN           ;$FFCF - input character                  
         CMP #$0D
         BNE b1993
-        JSR ROM_CLRCHN        ;$FFCC - restore default devices          
+        JSR ROM_CLRCHN          ;$FFCC - restore default devices          
         PLP 
         BEQ b19B1
         LDX #$B3
         LDY #$1B
         JSR j1AF9
         LDA #$02
-        JSR ROM_CLOSE          ;$FFC3 - close a logical file             
+        JSR ROM_CLOSE           ;$FFC3 - close a logical file             
         LDA #$0F
-        JMP ROM_CLOSE        ;$FFC3 - close a logical file             
+        JMP ROM_CLOSE           ;$FFC3 - close a logical file             
 
 ;Success Path for File Operations
 b19B1   LDA #$03          ; Set logical file number 3
@@ -375,123 +375,123 @@ j1A17   LDX #$D1
 ;--------------------------------------------------
 s1A29   LDX a17FA
         CPX a17FC
-        BEQ b1A4B              ; If same, skip disk preparation
+        BEQ b1A4B               ; If same, skip disk preparation
         LDA #$0F
         TAY 
-        JSR ROM_SETLFS        ;$FFBA - set file parameters              
+        JSR ROM_SETLFS          ;$FFBA - set file parameters              
         LDA #$01
         LDX #$CC
         LDY #$1B
-        JSR ROM_SETNAM        ;$FFBD - set file name                    
-        JSR ROM_OPEN        ;$FFC0 - open log.file after SETLFS,SETNAM
+        JSR ROM_SETNAM          ;$FFBD - set file name                    
+        JSR ROM_OPEN            ;$FFC0 - open log.file after SETLFS,SETNAM
         LDA #$0F
-        JSR ROM_CLOSE        ;$FFC3 - close a logical file             
+        JSR ROM_CLOSE           ;$FFC3 - close a logical file             
         LDX a17FC
 
 ; If drives are same, simply open the log file
 b1A4B   LDA #$0F
         TAY 
-        JSR ROM_SETLFS        ;$FFBA - set file parameters              
+        JSR ROM_SETLFS          ;$FFBA - set file parameters              
         LDA #$01
         LDX #$CC
         LDY #$1B
-        JSR ROM_SETNAM        ;$FFBD - set file name                    
-        JMP ROM_OPEN          ;$FFC0 - open log.file after SETLFS,SETNAM
+        JSR ROM_SETNAM          ;$FFBD - set file name                    
+        JMP ROM_OPEN            ;$FFC0 - open log.file after SETLFS,SETNAM
 
 ;--------------------------------------------------
 ; ENTRY POINT FOR TRANSLATION PHASE (j1A5D)
 ;--------------------------------------------------
-j1A5D   LDA a01              ; Save processor status register
+j1A5D   LDA a01                 ; Save processor status register
         PHA 
-        ORA #$07               ; Enable BASIC/KERNAL ROM
+        ORA #$07                ; Enable BASIC/KERNAL ROM
         STA a01
         CLI                     ; Enable interrupts
 
-       ; Display initial message
+        ; Display initial message
         LDX #$5B
         LDY #$1B
-        JSR s1AE4              ; Display prompt or message depending on a1C27 flag
+        JSR s1AE4               ; Display prompt or message depending on a1C27 flag
 
-       ; Prepare temporary drive filename
-        LDA a1BD2       ; Get drive number from stored temporary
+        ; Prepare temporary drive filename
+        LDA a1BD2               ; Get drive number from stored temporary
         STA a1BCD
 
-       ; Open log file on logical file 15
+        ; Open log file on logical file 15
         LDA #$0F
         LDX a17FC
         TAY 
-        JSR ROM_SETLFS        ;$FFBA - set file parameters              
+        JSR ROM_SETLFS          ;$FFBA - set file parameters              
         
-       LDA #$03              ; Filename length
+        LDA #$03                ; Filename length
         LDX #$CC
         LDY #$1B
-        JSR ROM_SETNAM        ;$FFBD - set file name                    
-        JSR ROM_OPEN        ;$FFC0 - open log.file after SETLFS,SETNAM
+        JSR ROM_SETNAM          ;$FFBD - set file name                    
+        JSR ROM_OPEN            ;$FFC0 - open log.file after SETLFS,SETNAM
 
        ; Set up logical file for object output
-       LDA #$02
+        LDA #$02
         LDX a17FC
         TAY 
-        JSR ROM_SETLFS        ;$FFBA - set file parameters 
+        JSR ROM_SETLFS          ;$FFBA - set file parameters 
 
         LDX #$13
         LDY #$1C
-        LDA a1C12              ; Get filename length stored earlier
-        JSR ROM_SETNAM        ;$FFBD - set file name                    
-        JSR ROM_OPEN        ;$FFC0 - open log.file after SETLFS,SETNAM
+        LDA a1C12               ; Get filename length stored earlier
+        JSR ROM_SETNAM          ;$FFBD - set file name                    
+        JSR ROM_OPEN            ;$FFC0 - open log.file after SETLFS,SETNAM
         
-       BCS b1AC1              ; Branch if OPEN failed
+       BCS b1AC1                ; Branch if OPEN failed
 
        ; Check compilation results in log file
         LDX #$0F
-        JSR ROM_CHKIN        ;$FFC6 - open channel for input           
-        JSR ROM_CHRIN        ;$FFCF - input character                  
+        JSR ROM_CHKIN           ;$FFC6 - open channel for input           
+        JSR ROM_CHRIN           ;$FFCF - input character                  
         CMP #$30
         BNE b1AAE
-        JSR ROM_CHRIN       ;$FFCF - input character                  
+        JSR ROM_CHRIN           ;$FFCF - input character                  
 b1AAE   PHA                     ; Temporarily store result byte
-b1AAF   JSR ROM_CHRIN       ; Read through to end of line                 
+b1AAF   JSR ROM_CHRIN           ; Read through to end of line                 
         CMP #$0D
         BNE b1AAF
-        JSR ROM_CLRCHN       ;$FFCC - restore default devices          
-        PLA               ; Restore result byte
+        JSR ROM_CLRCHN          ;$FFCC - restore default devices          
+        PLA                     ; Restore result byte
         CMP #$30
         BNE b1AC1
-        CLC               ; Success, clear carry
+        CLC                     ; Success, clear carry
         BCC b1ACB
 
 ; On file open or compilation failure, close object file and display error
 b1AC1   LDA #$02
-        JSR ROM_CLOSE       ;$FFC3 - close a logical file             
+        JSR ROM_CLOSE           ;$FFC3 - close a logical file             
         LDX #$43
         LDY #$1B
-        SEC               ; Set carry indicating failure
+        SEC                     ; Set carry indicating failure
 
 ; Restore processor status
 b1ACB   SEI 
         PLA 
-        STA a01       ; Restore processor port (ROM/RAM configuration)
+        STA a01                 ; Restore processor port (ROM/RAM configuration)
         RTS 
 
 ; Subroutine to consume and discard the rest of the current input line
 s1AD0   LDX #$0F
-        JSR ROM_CHKIN ;$FFC6 - open channel for input           
-b1AD5   JSR ROM_CHRIN ;$FFCF - input character                  
+        JSR ROM_CHKIN           ;$FFC6 - open channel for input           
+b1AD5   JSR ROM_CHRIN           ;$FFCF - input character                  
         CMP #$0D
         BNE b1AD5
-        JSR ROM_CLRCHN ;$FFCC - restore default devices          
+        JSR ROM_CLRCHN          ;$FFCC - restore default devices          
         LDX #$0F
-        JMP ROM_CHKOUT ;$FFC9 - open channel for output          
+        JMP ROM_CHKOUT          ;$FFC9 - open channel for output          
 
 ; Subroutine to conditionally wait for key press
 s1AE4   LDA a1C27
         BNE b1AEA
         RTS 
 
-b1AEA   JSR j1AF9              ; Output message or prompt
-b1AED   JSR ROM_GETIN        ;$FFE4 - get a byte from channel          
+b1AEA   JSR j1AF9               ; Output message or prompt
+b1AED   JSR ROM_GETIN           ;$FFE4 - get a byte from channel          
         CMP #$0D
-        BNE b1AED              ; Loop until RETURN pressed
+        BNE b1AED               ; Loop until RETURN pressed
         RTS 
 
 ; Display error or informational messages
@@ -502,7 +502,7 @@ j1AF9   STX a4B
         LDY #$00
 b1AFF   LDA (p4B),Y
         BEQ b1B09
-        JSR ROM_CHROUT ;$FFD2 - output character                 
+        JSR ROM_CHROUT          ;$FFD2 - output character                 
         INY 
         BNE b1AFF
 b1B09   RTS 
