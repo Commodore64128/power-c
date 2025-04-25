@@ -1,4 +1,4 @@
-petscii .namespace
+
 common  .segment;common definitions
         .cdef " @", $20;32-64 is identical
         .tdef "[£]↑←", $5b, "┼🮌🭳", $db
@@ -18,7 +18,7 @@ lower   .encode;lowercase PETSCII
         .tdef "▌▄▔▁▏▒▕🮏🮙🮇├▗└┐▂┌┴┬┤▎▍🮈🮂🮃▃✓▖▝┘▘▚🭹", $a1
         .tdef "🮘🮕─│", [$df, $ff, $c0, $dd];random one to ones
         .endencode
-        .endnamespace
+
 
 ;**************************************************
 ;
@@ -323,7 +323,7 @@ b20B4   LDA #$00         ; channel 0
         JSR s21D3        ; transfer to record counter
         RTS              ; return to caller after file setup
 
-.encode petscii.upper
+.encode upper
         .TEXT " *** #IF WITHOUT #ENDIF", $0D, $00
 .endencode
 
