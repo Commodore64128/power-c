@@ -307,6 +307,7 @@ b20B4   LDA #$00         ; channel 0
 ; Routine s20EC ($20EC) - Initialize #IF Directive State
 ;--------------------------------------------------
 ; Sets up state for conditional compilation directives.
+s20EC
        LDA #$00           ; clear nesting counter (no unmatched #IF yet)
        STA aFE            ; store zero in conditional state flag
        TSX                ; transfer current stack pointer to X for depth tracking
@@ -1300,14 +1301,6 @@ b275F   LDA a36           ; Load saved token/char into A
         DEC a37           ; Decrement nesting counter, entering error state
 j2763   RTS               ; Return from error-entry setup
 
-;--------------------------------------------------
-; Routine s2764 ($2764) - Increment Nesting Counter
-;--------------------------------------------------
-s2764   INC a37           ; Increase nesting counter for nested directives
-        RTS               ; Return
-
-        .TEXT " *** SYNTAX ERROR", $0D, $00
-
 ; Routine s2764 ($2764) - Increment Directive Nesting Counter
 s2764   INC a37          ; a37 holds nesting counter for conditional directives (#IF depth)
         RTS              ; return
@@ -1421,9 +1414,9 @@ b2803   DEX             ; decrement bit counter
 
 ; Data scratch bytes for shift routine
 
-_a280B:	.BYTE $00	; scratch high-order accumulator (initially 0)
-_a280C:	.BYTE $00	; scratch mid-order accumulator (initially 0)
-_a280D:	.BYTE $00	; scratch low-order accumulator (initially 0)
+a280B:	.BYTE $00	; scratch high-order accumulator (initially 0)
+a280C:	.BYTE $00	; scratch mid-order accumulator (initially 0)
+a280D:	.BYTE $00	; scratch low-order accumulator (initially 0)
 
 ;--------------------------------------------------
 ; Routine s280E ($280E) – Rotate/Multi-Precision Shift Setup
@@ -1658,7 +1651,120 @@ a2939   .BYTE $00,$01,$02,$00,$60,$01,$74,$02  ; entries 0–3
         .BYTE $43,$74,$00,$6E,$44,$1B,$66,$00  ; entries 120–123
         .BYTE $66,$45,$1C,$00,$66,$46,$1C,$00  ; entries 124–127
 
+       ; portion of code chatgpt failed to continue
+         .BYTE $66,$47,$1C,$00,$66,$47,$70,$1C
+         .BYTE $00,$66,$48
+         .BYTE $4B,$00,$6F,$49,$7D,$00,$7D,$49
+         .BYTE $7E,$00,$7D,$4B,$00,$7D,$4B,$1B
+         .BYTE $66,$00,$66,$4B,$57,$55,$64,$00
+         .BYTE $56,$4B,$57,$64,$00,$56,$4C,$00
+         .BYTE $7D,$4D,$00,$5F,$4E,$00,$5C,$4F
+         .BYTE $00,$7D,$50,$00,$7D,$51,$00,$7D
+         .BYTE $52,$00,$7D,$53,$00,$58,$55,$00
+         .BYTE $54,$55,$56,$00,$55,$55,$59,$00
+         .BYTE $55,$56,$00,$55,$58,$13,$53,$00
+         .BYTE $58,$59,$00,$55,$5A,$1C,$00,$59
+         .BYTE $5A,$5D,$1C,$00,$59,$5A,$5D,$57
+         .BYTE $55,$64,$00,$56,$5A,$5D,$57,$64
+         .BYTE $00,$56,$5B
+         .BYTE $00,$5A,$5B,$5C,$00,$5A,$5C,$00
+         .BYTE $5A,$5D,$13,$5E,$00,$5D,$5E,$00
+         .BYTE $5D,$5F,$00,$5E,$5F,$01,$02,$00
+         .BYTE $5F,$5F,$01,$74,$02,$00,$5F,$5F
+         .BYTE $0C,$0D,$00,$5F,$5F,$21,$2B,$62
+         .BYTE $13,$2C,$00,$5E,$5F,$21,$2B,$62
+         .BYTE $2C,$00,$5E,$5F,$21,$74,$00,$5E
+         .BYTE $60,$01,$02
+         .BYTE $00,$60,$60,$01,$74,$02,$00,$60
+         .BYTE $60,$0C,$0D,$00
+         .BYTE $60,$61,$00,$5C,$62,$13,$63,$00
+         .BYTE $62
+         .BYTE $63,$00,$62,$64,$00,$66,$65,$59
+         .BYTE $00,$65,$65,$66,$00,$65,$66,$00
+         .BYTE $65,$67,$66,$00,$66,$67,$66,$3F
+         .BYTE $66,$00,$66
+         .BYTE $68,$66,$00,$66,$69,$3E,$0C,$70
+         .BYTE $0D,$1C,$00,$66,$6A,$6B,$6C,$66
+         .BYTE $00,$66,$6D,$66,$00,$66,$6E,$1B
+         .BYTE $66,$00,$66,$6F,$1C,$00,$66,$70
+         .BYTE $0D,$00,$6C,$70,$13,$71,$00,$70
+         .BYTE $70,$1C,$00,$FD,$71,$00,$70,$72
+         .BYTE $00,$71,$73,$00,$72,$73,$27,$73
+         .BYTE $1B,$73,$00,$72,$73,$29,$74,$00
+         .BYTE $73,$74,$00,$FC,$74,$0A
+         .BYTE $75,$00,$74,$75,$00,$74,$75,$28
+         .BYTE $76,$00,$75,$76,$00,$75,$76,$03
+         .BYTE $77,$00,$76,$77,$00,$76,$77,$09
+         .BYTE $78,$00,$77,$78,$00,$77,$78,$06
+         .BYTE $79,$00,$78,$78,$22,$79,$00,$78
+         .BYTE $79,$00,$78,$79,$1D,$7A,$00,$79
+         .BYTE $79,$1F,$7A,$00,$79,$79,$23,$7A
+         .BYTE $00,$79,$79,$25,$7A,$00,$79,$7A
+         .BYTE $00,$79,$7A,$1E,$7B,$00,$7A,$7A
+         .BYTE $24,$7B,$00,$7A,$7B,$00,$7A,$7B
+         .BYTE $10,$7C,$00,$7B,$7B,$14,$7C,$00
+         .BYTE $7B,$7C,$00,$7B,$7C,$07,$7D,$00
+         .BYTE $7C,$7C,$0E,$7D,$00,$7C,$7C,$19
+         .BYTE $7D,$00,$7C,$7D,$00,$7C,$7D,$01
+         .BYTE $74
+         .BYTE $02,$00,$7D,$7D,$04,$71,$00,$71
+         .BYTE $7D,$08,$71,$00,$71,$7D,$0B,$71
+         .BYTE $00,$71,$7D,$0C,$0D,$00,$7D,$7D
+         .BYTE $0C,$70,$0D,$00,$7D,$7D,$0F,$71
+         .BYTE $00,$71,$7D,$11,$00,$7D,$7D,$12
+         .BYTE $71,$00,$71,$7D,$15,$00,$7D,$7D
+         .BYTE $16,$71,$00,$71,$7D,$17,$4C,$00
+         .BYTE $7D,$7D,$18,$4C,$00,$7D,$7D,$1A
+         .BYTE $71,$00,$71,$7D,$20,$71,$00,$71
+         .BYTE $7D,$21,$71,$00,$71,$7D,$26,$71
+         .BYTE $00,$71,$7D,$2A,$71,$00,$71,$7E
+         .BYTE $7D,$00,$7D
+ p2C24   .BYTE $00,$00,$04,$00,$09,$00,$0D,$00
+         .BYTE $11,$00,$15,$00
+         .BYTE $1A,$00,$1F,$00,$25,$00,$2A,$00
+         .BYTE $2F,$00,$34,$00,$37,$00,$3A,$00
+         .BYTE $3E,$00,$42,$00,$46,$00,$4A,$00
+         .BYTE $4E,$00,$52,$00,$55,$00,$59,$00
+         .BYTE $5F,$00,$65,$00,$6A,$00,$6F,$00
+         .BYTE $73,$00,$76,$00,$79,$00,$7C,$00
+         .BYTE $7F,$00,$82,$00,$85,$00,$88,$00
+         .BYTE $8C,$00,$8F,$00,$92,$00,$96,$00
+         .BYTE $9A,$00,$9D,$00,$A1,$00,$A4,$00
+         .BYTE $A7,$00,$AD,$00,$B4,$00,$B8,$00
+         .BYTE $BE,$00,$C5,$00,$C9,$00,$CF,$00
+         .BYTE $D4,$00,$DA,$00,$DE,$00,$E3,$00
+         .BYTE $E9,$00,$EF,$00,$F3,$00,$F8,$00
+         .BYTE $FC,$00,$00,$01,$04,$01,$09,$01
+         .BYTE $0D,$01,$11,$01,$15,$01,$18,$01
+         .BYTE $1D,$01,$23,$01,$28,$01,$2B,$01
+         .BYTE $2E,$01,$31,$01,$34,$01,$37,$01
+         .BYTE $3A,$01,$3D,$01,$40,$01,$43,$01
+         .BYTE $47,$01,$4B,$01,$4E,$01,$53,$01
+         .BYTE $56,$01,$5A,$01,$5F,$01,$66,$01
+         .BYTE $6C,$01,$6F,$01,$73,$01,$76,$01
+         .BYTE $7B,$01,$7E,$01,$81,$01,$86,$01
+         .BYTE $8C,$01,$91,$01,$99,$01,$A0,$01
+         .BYTE $A5,$01,$AA,$01,$B0,$01,$B5,$01
+         .BYTE $B8,$01,$BD,$01,$C0,$01,$C3,$01
+         .BYTE $C7,$01,$CB,$01,$CE,$01,$D2,$01
+         .BYTE $D8,$01,$DC,$01,$E4,$01,$EA,$01
+         .BYTE $EE,$01,$F3,$01,$F7,$01,$FB,$01
+         .BYTE $00,$02,$04,$02,$07,$02,$0A,$02
+         .BYTE $0D,$02,$14,$02,$19,$02,$1C,$02
+         .BYTE $21,$02,$24,$02,$29,$02,$2C,$02
+         .BYTE $31,$02,$34,$02,$39,$02,$3C,$02
+         .BYTE $41,$02,$46,$02,$49,$02,$4E,$02
+         .BYTE $53,$02,$58,$02,$5D,$02,$60,$02
+         .BYTE $65,$02,$6A,$02,$6D,$02,$72,$02
+         .BYTE $77,$02,$7A,$02,$7F,$02,$84,$02
+         .BYTE $89,$02,$8C,$02,$92,$02,$97,$02
+         .BYTE $9C,$02,$A1,$02,$A6,$02,$AC,$02
+         .BYTE $B1,$02,$B5,$02,$BA,$02,$BE,$02
+         .BYTE $C3,$02,$C8,$02,$CD,$02,$D2,$02
+         .BYTE $D7,$02,$DC,$02,$E1,$02
+ p2D76   .BYTE $E6,$02
 
+       ; end portion
 ; ----------------------------------------------------------------------------
 ; Dispatch Vector for Tokens $40–$7F (64–127): one JMP per code
 ; Maps each token value to its handler routine
