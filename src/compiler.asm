@@ -1,11 +1,7 @@
-
-common  .segment;common definitions
+upper   .encode;uppercase PETSCII
         .cdef " @", $20;32-64 is identical
         .tdef "[£]↑←", $5b, "┼🮌🭳", $db
         .edef "{clr}", 147, "{cr}", 13
-        .endsegment
-upper   .encode;uppercase PETSCII
-        #common
         .cdef "AZ", $41
         .tdef "▌▄▔▁▏▒▕🮏◤🮇├▗└┐▂┌┴┬┤▎▍🮈🮂🮃▃🭿▖▝┘▘▚🭹", $a1
         .tdef "♠🭲🭸🭷🭶🭺🭱🭴╮╰╯🭼╲╱🭽🭾●🭻♥🭰╭╳○♣🭵♦", $c1
@@ -13,7 +9,9 @@ upper   .encode;uppercase PETSCII
         .endencode
 
 lower   .encode;lowercase PETSCII
-        #common
+        .cdef " @", $20;32-64 is identical
+        .tdef "[£]↑←", $5b, "┼🮌🭳", $db
+        .edef "{clr}", 147, "{cr}", 13
         .cdef "az", $41, "AZ", $c1;the easy ranges
         .tdef "▌▄▔▁▏▒▕🮏🮙🮇├▗└┐▂┌┴┬┤▎▍🮈🮂🮃▃✓▖▝┘▘▚🭹", $a1
         .tdef "🮘🮕─│", [$df, $ff, $c0, $dd];random one to ones
