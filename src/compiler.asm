@@ -166,43 +166,55 @@ ROM_CHROUT = $FFD2
 ROM_GETIN = $FFE4
 
         * = $2000
+;--------------------------------------------------
+; Startup Initialization at $2000
+;--------------------------------------------------
+; Disable interrupts and configure system flags, then initialize
+; compiler working areas and I/O before beginning compilation.
 
-        SEI 
+        SEI              ; disable interrupts
         LDA a01
-        AND #$F8
-        STA a01
+        AND #$F8        ; mask bits 0-2
+        STA a01         ; set system flags
         LDA aFE
-        STA a2051
-        JSR s2052
-        JSR s319D
-        JSR s523E
-        JSR s24B4
-        JSR s20EC
-j201B   JSR s26E7
-        JSR s26FA
-        JSR s20A8
-j2024   LDX #$0F
-        JSR s2140
-        LDA #$49
-        JSR s2152
-        LDA #$30
-        JSR s2152
-        LDA #$0D
-        JSR s2152
-        JSR s2164
-        JSR s205D
-        JSR s207E
+        STA a2051       ; clear compiler state
+        JSR s2052       ; init workspace buffers — sets up scratch memory by copying zero-page work area
+        JSR s319D       ; clear variable table — resets compiler’s symbol entries/variable definitions
+        JSR s523E       ; setup I/O table — hooks KERNAL CHRIN/CHROUT/GETIN routines for compiler's console I/O
+        JSR s24B4       ; init code-pointer table — set a1E/a1F to point at token dispatch table in memory
+        JSR s20EC       ; init conditional directive state — reset IF-level counter and prepare unmatched-IF error message buffer
+
+;--------------------------------------------------
+; Label j201B ($201B) - Entry to parsing main loop
+;--------------------------------------------------
+j201B   JSR s26E7       ; initialize scanner/parser starting state (reset buffers & pointers)
+        JSR s26FA       ; process initial directives and setup I/O conditions
+        JSR s20A8       ; handle conditional directives (#IF state or file open ops)
+j2024   LDX #$0F        ; continue main loop setup
+        JSR s2140       ; open output channel — set compiler’s output to current device (CHROUT)
+        LDA #$49        ; 'I'
+        JSR s2152       ; output character via CHROUT
+        LDA #$30        ; '0'
+        JSR s2152       ; output character via CHROUT
+        LDA #$0D        ; carriage return
+        JSR s2152       ; output character via CHROUT
+        JSR s2164       ; restore default I/O devices
+        JSR s205D       ; restore workspace buffers — copy original zero-page work area back from backup
+        JSR s207E       ; print compiler banner — output initial header message from f208D via CHROUT
         LDA a01
         ORA #$07
         STA a01
-        CLI 
-        LDA #<p8EB3
+        CLI               ; reenable interrupts
+        LDA #<p8EB3       ; setup return pointer low byte
         STA a4B
-        LDA #>p8EB3
+        LDA #>p8EB3       ; setup return pointer hi byte
         STA a4C
-        RTS 
+        RTS               ; return to caller
 
 a2051   .BYTE $00
+
+        ; Copy 250 bytes back and forth between two zero‑page buffers
+        ; used to clear or restore state.
 s2052   LDX #$FA
 b2054   LDA f00,X
         STA f7ACD,X
@@ -210,6 +222,8 @@ b2054   LDA f00,X
         BNE b2054
         RTS 
 
+        ; Copy 250 bytes back and forth between two zero‑page buffers
+        ; used to clear or restore state.
 s205D   LDX #$FA
 b205F   LDA f7ACD,X
         STA f00,X
@@ -217,101 +231,143 @@ b205F   LDA f7ACD,X
         BNE b205F
         RTS 
 
-s2068   STX a2B
-        STY a2C
-        LDY #$00
-j206E   LDA (p2B),Y
-        BEQ b207D
-        JSR s2152
-        INY 
-        BNE b207A
-        INC a2C
-b207A   JMP j206E
+;--------------------------------------------------
+; Routine s2068 ($2068) - Token Scanner Loop
+;--------------------------------------------------
+s2068   STX a2B           ; save X as low byte of dispatch table pointer
+        STY a2C           ; save Y as high byte of dispatch table pointer
+        LDY #$00          ; start index at zero to read first character
+j206E   LDA (p2B),Y       ; load next PETSCII character from input buffer
+        BEQ b207D         ; if character = $00, end of input; exit scanner
+        JSR s2152         ; dispatch or echo character via CHROUT
+        INY               ; increment low-byte index
+        BNE b207A         ; if no wrap, stay on same page
+        INC a2C           ; on wrap, advance high-byte page for pointer
+b207A   JMP j206E         ; repeat loop for next character
 
-b207D   RTS 
+b207D   RTS               ; return when scan complete
 
-s207E   LDY #$00
-j2080   LDA f208D,Y
-        BEQ b208C
-        JSR s2152
-        INY 
-        JMP j2080
+;--------------------------------------------------
+; Routine s207E ($207E) - Banner/Text Printer Loop
+;--------------------------------------------------
+s207E   LDY #$00          ; start index at zero to read banner text
+j2080   LDA f208D,Y       ; load next byte from banner table f208D
+        BEQ b208C         ; if zero, end of banner; exit printer
+        JSR s2152         ; output character via CHROUT
+        INY               ; advance to next byte in banner
+        JMP j2080         ; loop to print entire banner
 
-b208C   RTS 
+b208C   RTS               ; return after banner printed
 
+;--------------------------------------------------
+; Data Block f208D (Banner Graphics)
+;--------------------------------------------------
+; f208D: 32-byte PETSCII pattern table used as the compiler banner graphic.
+; Consists of a sequence of PETSCII graphic characters (value $11 = solid block, $13 = half-block) to draw a decorative
+; line or box at the top of the banner, followed by a terminating $00.
+; The printer routine s207E iterates through this table to render the banner's graphic border before text.
+;
+; Example values:
+;   $13 : left half block
+;   $11 : full block
+;   $00 : terminator
+;
 f208D   .BYTE $13,$11,$11,$11,$11,$11,$11,$11
         .BYTE $11,$11,$11,$11,$11,$11,$11,$11
         .BYTE $11,$11,$11,$11,$11,$11,$11,$11
         .BYTE $11,$11,$00
-s20A8   LDA a59EB
-        BEQ b20B4
-        LDX #$D3
-        LDY #$20
-        JMP j20F8
 
-b20B4   LDA #$00
-        JSR s21D3
-        LDA #<pE000
-        STA a14
-        LDA #>pE000
-        STA a15
-        LDA #$71
-        JSR s21D3
-        LDA a26E0
-        JSR s21D3
-        LDA a26E1
-        JSR s21D3
-        RTS 
+
+;--------------------------------------------------
+; Routine s20A8 ($20A8) - Conditional Directive & File Setup
+;--------------------------------------------------
+s20A8   LDA a59EB        ; check nested conditional/file state flag
+        BEQ b20B4        ; if zero, first pass: open default file/context
+        LDX #$D3         ; else, prepare to resume scan: set prompt delimiter
+        LDY #$20
+        JMP j20F8        ; jump back into main scanner loop
+
+b20B4   LDA #$00         ; channel 0
+        JSR s21D3        ; SETLFS to channel 0
+        LDA #<pE000      ; low byte of input buffer address
+        STA a14          ; set LFS low
+        LDA #>pE000      ; high byte of input buffer address
+        STA a15          ; set LFS high
+        LDA #$71         ; record length or E: >$70 command
+        JSR s21D3        ; SETNAM/OPEN to initialize file read
+        LDA a26E0        ; low byte of record count
+        JSR s21D3        ; transfer to record counter
+        LDA a26E1        ; high byte of record count
+        JSR s21D3        ; transfer to record counter
+        RTS              ; return to caller after file setup
 
         .TEXT " *** #IF WITHOUT #ENDIF", $0D, $00
-s20EC   LDA #$00
-        STA aFE
-        TSX 
-        INX 
-        INX 
-        STX a20F7
-        RTS 
+
+;--------------------------------------------------
+; Routine s20EC ($20EC) - Initialize #IF Directive State
+;--------------------------------------------------
+; Sets up state for conditional compilation directives.
+       LDA #$00           ; clear nesting counter (no unmatched #IF yet)
+       STA aFE            ; store zero in conditional state flag
+       TSX                ; transfer current stack pointer to X for depth tracking
+       INX                ; adjust X to account for local variables saved on stack
+       INX                ; further adjust X to arrive at return stack depth
+       STX a20F7          ; save computed return SP offset in a20F7 for later use
+       RTS                ; return to caller, conditional directives initialized
 
 a20F7   .BYTE $00
-j20F8   LDA #$01
+
+;--------------------------------------------------
+; Routine j20F8 ($20F8) - Main Input Loop Entry
+;--------------------------------------------------
+j20F8   LDA #$01          ; set input-ready flag in aFE
         STA aFE
-        STX a2B
-        STY a2C
-j2100   LDA a5603
-        CMP #$02
-        BEQ b2110
-        JSR s215B
-        DEC a5603
-        JMP j2100
+        STX a2B           ; initialize pointer low-byte to input buffer start
+        STY a2C           ; initialize pointer high-byte to input buffer start
 
-b2110   LDA #$0D
-        JSR s2152
-        LDX a2B
-        LDY a2C
-        JSR s2068
-        LDX a20F7
-        TXS 
-        JMP j2024
+; Wait for at least one record to be read into buffer (a5603 holds pending record count)
+j2100   LDA a5603        ; load remaining record count
+        CMP #$02         ; compare to threshold for 'end-of-file'
+        BEQ b2110        ; if 2 means data available, proceed to scan
+        JSR s215B        ; close current file handle to refill buffer
+        DEC a5603        ; decrement record count
+        JMP j2100        ; loop until data ready
 
-s2123   PHA 
-        LDA a01
-        ORA #$06
-        STA a01
-        PLA 
-        CLI 
-        RTS 
+b2110   LDA #$0D         ; load carriage return to signal end-of-line
+        JSR s2152        ; output CR to console
+        LDX a2B          ; restore buffer pointer low-byte
+        LDY a2C          ; restore buffer pointer high-byte
+        JSR s2068        ; call scanner loop to process buffer
+        LDX a20F7        ; load saved return stack offset
+        TXS              ; restore return address for nested directives
+        JMP j2024        ; return to main loop for next iteration
 
-j212D   SEI 
-        PHA 
-        LDA a01
-        AND #$F8
-        STA a01
-        PLA 
-        RTS 
+;--------------------------------------------------
+; Routines s2123 ($2123), j212D ($212D), and s2137 ($2137) - I/O Mode Control
+;--------------------------------------------------
+; s2123: Disable echo and enter critical section
+s2123   PHA              ; save A
+        LDA a01          ; load system port settings
+        ORA #$06         ; enable serial disable and linefeed inhibit
+        STA a01          ; update system port (disable screen output)
+        PLA              ; restore A
+        CLI              ; clear interrupt disable to allow I/O
+        RTS              ; return to caller
 
-s2137   JSR s2123
-        JSR ROM_CHKIN ;$FFC6 - open channel for input           
-        JMP j212D
+; j212D: Enable interrupts and restore echo
+j212D   SEI              ; disable interrupts
+        PHA              ; save A
+        LDA a01          ; load system port settings
+        AND #$F8         ; clear serial-disable and linefeed-inhibit bits
+        STA a01          ; restore normal screen output
+        PLA              ; restore A
+        RTS              ; return to caller
+
+; s2137: Open input channel in protected mode
+s2137   JSR s2123        ; disable echo and set low-level I/O flags
+        JSR ROM_CHKIN    ; $FFC6 - open channel for input (CHRIN)
+        JMP j212D        ; branch to restore echo and enable interrupts
+
 
 s2140   JSR s2123
         JSR ROM_CHKOUT ;$FFC9 - open channel for output          
@@ -337,38 +393,45 @@ s216D   JSR s2123
         JSR ROM_GETIN ;$FFE4 - get a byte from channel          
         JMP j212D
 
-s2176   JSR s2123
-        JSR ROM_OPEN ;$FFC0 - open log.file after SETLFS,SETNAM
+;--------------------------------------------------
+; Routine s2176 ($2176) - Read a Line from File into Buffer
+;--------------------------------------------------
+s2176   JSR s2123        ; disable echo and set low-level I/O flags
+        JSR ROM_OPEN     ; open file after SETLFS and SETNAM
         LDX #$0F
-        JSR ROM_CHKIN ;$FFC6 - open channel for input           
+        JSR ROM_CHKIN    ; open channel for input
         LDY #$00
-b2183   JSR ROM_CHRIN ;$FFCF - input character                  
-        STA f7C31,Y
-        INY 
-        CMP #$0D
-        BNE b2183
+b2183   JSR ROM_CHRIN    ; read character from input channel into A
+        STA f7C31,Y      ; store character into line buffer f7C31
+        INY
+        CMP #$0D         ; check for carriage return (end-of-line)
+        BNE b2183       ; loop until CR
         LDA #$00
-        STA f7C31,Y
-        LDA f7C31
-        CMP #$30
-        BNE b21A5
+        STA f7C31,Y      ; null-terminate the string
+        LDA f7C31       ; peek first character of the line
+        CMP #$30        ; compare to '0' (PETSCII $30)
+        BEQ b21A5       ; if '0', treat as special case
         LDA a7C32
-        CMP #$30
-        BNE b21A5
-        CLC 
-        JMP j212D
+        CMP #$30        ; check ROM GET buffer first byte
+        BEQ b21A5       ; if '0', special case
+        CLC
+        JMP j212D       ; normal return: restore echo and interrupts
 
 b21A5   LDA #$0F
-        JSR ROM_CLOSE ;$FFC3 - close a logical file             
-        JSR ROM_CLRCHN ;$FFCC - restore default devices          
-        SEC 
+        JSR ROM_CLOSE   ; close the input file
+        JSR ROM_CLRCHN  ; restore default I/O devices
+        SEC
         LDX #$31
         LDY #$7C
-        JMP j212D
+        JMP j212D       ; return with carry set for special case
 
-s21B5   JSR s2123
-        JSR ROM_READST ;$FFB7 - read I/O status byte             
-        JMP j212D
+;--------------------------------------------------
+; Routine s21B5 ($21B5) - Read I/O Status Byte
+;--------------------------------------------------
+s21B5   JSR s2123        ; disable echo and set I/O flags
+        JSR ROM_READST   ; read the I/O status byte from KERNAL
+        JMP j212D        ; restore echo and return
+
 
 s21BE   JSR s2123
         JSR ROM_SETLFS ;$FFBA - set file parameters              
@@ -378,73 +441,89 @@ s21C7   JSR s2123
         JSR ROM_SETNAM ;$FFBD - set file name                    
         JMP j212D
 
-s21D0   JMP j24BD
+;--------------------------------------------------
+; Routine s21D0 ($21D0) - Invoke Name Descriptor Emitter
+;--------------------------------------------------
+s21D0   JMP j24BD        ; jump into binary writer routine at j24BD to emit current name and file pointers into output stream
 
-s21D3   PHA 
-        JSR s58F5
-        BCC b21DB
-        PLA 
-        RTS 
+;--------------------------------------------------
+; Routine s21D3 ($21D3) - Push and Test Name Length
+;--------------------------------------------------
+s21D3   PHA              ; save accumulator (character or length count)
+        JSR s58F5        ; normalize input character (convert lowercase to uppercase, skip control)
+        BCC b21DB        ; if no carry, character valid for name length counting
+        PLA              ; restore accumulator on error
+        RTS              ; return without storing length
 
-b21DB   PLA 
-        STY a21F6
+b21DB   PLA              ; restore original accumulator
+        STY a21F6        ; store Y (length or flag) into a21F6 for name descriptor
         LDY #$00
-        STA (p14),Y
-        INC a14
-        BNE b21F2
-        INC a15
+        STA (p14),Y      ; write name descriptor header byte at *p14
+        INC a14          ; advance pointer low-byte
+        BNE b21F2        ; if no wrap
+        INC a15          ; on wrap, increment pointer high-byte
         BNE b21F2
         LDX #$F7
         LDY #$21
         JMP j20F8
+b21F2   LDY a21F6        ; reload length/flag into Y
+        RTS              ; return to caller
 
-b21F2   LDY a21F6
-        RTS 
 
 a21F6   .TEXT $00
         .TEXT " *** PROGRAM TOO BIG", $0D, $00
-s220D   STX a2B
-        STY a2C
-        JSR s58F5
-        BCC b2217
-        RTS 
 
-b2217   LDY #$00
-b2219   LDA (p2B),Y
-        BEQ b2224
-        STA (p14),Y
-        INY 
-        CPY #$0A
-        BNE b2219
-b2224   LDA #$00
-        STA (p14),Y
-        INY 
-        CLC 
-        TYA 
-        ADC a14
-        STA a14
-        BCC b223C
-        INC a15
+;--------------------------------------------------
+; Routine s220D ($220D) - 'Program Too Big' Error Emitter
+;--------------------------------------------------
+s220D   STX a2B           ; save current buffer pointer low-byte for error text source
+        STY a2C           ; save current buffer pointer high-byte
+        JSR s58F5         ; normalize first error character (uppercase conversion)
+        BCC b2217         ; if non-printable/control, skip to buffer copy loop
+        RTS               ; otherwise, abort error emit if unexpected character
+
+b2217   LDY #$00          ; start index for copying error message characters
+b2219   LDA (p2B),Y       ; load error text byte from source buffer
+        BEQ b2224         ; if zero terminator, end of message copy
+        STA (p14),Y       ; store into output buffer (descriptor area)
+        INY               ; increment copy index
+        CPY #$0A          ; limit to 10 characters max
+        BNE b2219         ; continue until max or terminator reached
+b2224   LDA #$00          ; null-terminate the copied error text
+        STA (p14),Y       ; write terminator
+        INY               ; advance pointer
+        CLC               ; prepare for pointer addition
+        TYA               ; get copy length in A
+        ADC a14           ; add to output buffer pointer low-byte
+        STA a14           ; store updated pointer low-byte
+        BCC b223C         ; if no carry, skip
+        INC a15           ; increment high-byte on carry
         BNE b223C
         LDX #$F7
         LDY #$21
         JMP j20F8
+b223C   RTS               ; return after error message emitted
 
-b223C   RTS 
 
-j223D   JSR s58B3
-        BCC b2248
-        JSR s24ED
-        JMP j5649
+;--------------------------------------------------
+; Routine j223D ($223D) - Primary Expression Evaluator Entry
+;--------------------------------------------------
+j223D   JSR s58B3        ; skip whitespace and get next token, sets carry clear if operator follows
+        BCC b2248        ; branch to operator-specific handler if valid operator
+        JSR s24ED        ; emit current symbol or operator token into output stream
+        JMP j5649        ; jump to expression finalizer/cleanup
 
-b2248   INC a18
-        LDY #$00
-        LDA (p49),Y
-        INY 
+;--------------------------------------------------
+; Routine b2248 ($2248) - Operator-Specific Handling
+;--------------------------------------------------
+b2248   INC a18           ; increment expression nesting depth counter
+        LDY #$00          ; reset index for reading operator length
+        LDA (p49),Y       ; load operator code from input buffer
+        INY
         CMP #$01
-        BEQ b2265
+        BEQ b2265        ; if operator code = 1 (e.g., '+'), handle unary/binary plus
         CMP #$02
-        BEQ b2265
+        BEQ b2265        ; handle other operators similarly
         CMP #$03
         BEQ b2265
         CMP #$07
@@ -452,1458 +531,1370 @@ b2248   INC a18
         CMP #$08
         BEQ b2265
         CMP #$05
-b2265   BNE b2269
-        INY 
-        INY 
-b2269   LDA (p49),Y
+b2265   BNE b2269        ; if none match, skip special multi-byte operator handling
+        INY               ; advance past 2-byte operator prefix
+        INY               ; advance past prefix bytes
+b2269   LDA (p49),Y       ; load following byte for full operator code
         CMP #$0A
-        BNE b2284
+        BNE b2284        ; dispatch to operator handlers based on code
         LDA #$0C
-        JSR s21D3
-        STY a238F
+        JSR s21D3        ; push operator code as name descriptor
+        STY a238F        ; save current index in a238F
         LDX #$78
         LDY #$87
-        JSR s220D
-        LDY a238F
-        JMP j2330
+        JSR s220D        ; emit error if operator not supported or overflow
+        LDY a238F        ; restore index
+        JMP j2330        ; continue expression loop
 
-b2284   LDY #$00
-        LDA (p49),Y
-        INY 
-        CMP #$01
-        BNE b22A1
-        LDA #$04
-        JSR s21D3
-        LDA (p49),Y
-        INY 
-        JSR s21D3
-        LDA (p49),Y
-        INY 
-        JSR s21D3
-        JMP j2330
+;--------------------------------------------------
+; Routine b2284 ($2284) - Handling Multi-Character Operators
+;--------------------------------------------------
+b2284   LDY #$00          ; reset index into operator lookup sequence
+        LDA (p49),Y       ; fetch first operator prefix byte
+        INY               ; advance input pointer
+        CMP #$01          ; check for prefix code $01 (start of three-byte operator)
+        BNE b22A1         ; if not $01 prefix, branch to two-byte operator handling
+        LDA #$04          ; token code for three-byte operators starting with $01
+        JSR s21D3         ; push operator prefix descriptor
+        LDA (p49),Y       ; fetch second operator byte
+        INY               ; advance input pointer
+        JSR s21D3         ; push second-byte operator descriptor
+        LDA (p49),Y       ; fetch third operator byte
+        INY               ; advance input pointer
+        JSR s21D3         ; push third-byte operator descriptor
+        JMP j2330         ; continue expression loop after multi-byte operator
 
-b22A1   CMP #$02
-        BEQ b22A7
-        CMP #$03
-b22A7   BNE b22BD
-        LDA #$07
-        JSR s21D3
-        LDA (p49),Y
-        INY 
-        JSR s21D3
-        LDA (p49),Y
-        INY 
-        JSR s21D3
-        JMP j2330
+;--------------------------------------------------
+; Routine b22A1 ($22A1) - Handling Two-Byte Operators (e.g., '==', '>=', etc.)
+;--------------------------------------------------
+b22A1   CMP #$02          ; check for '=' prefix (equality/comparison)
+        BEQ b22A7         ; branch if match
+        CMP #$03          ; check for alternative two-byte operator prefix
+b22A7   BNE b22BD         ; if no variant match, exit to next handler
+        LDA #$07          ; token code for two-byte operators
+        JSR s21D3         ; push first operator byte descriptor
+        LDA (p49),Y       ; fetch second operator byte
+        INY               ; advance input pointer
+        JSR s21D3         ; push second operator descriptor
+        LDA (p49),Y       ; fetch optional third byte for extended sequence
+        INY               ; advance input pointer
+        JSR s21D3         ; push third-byte operator descriptor
+        JMP j2330         ; continue expression loop after handling two-byte operator
 
-b22BD   CMP #$04
-        BNE b22D6
-        LDA #$08
-        JSR s21D3
-        STY a238F
-        LDX #$78
-        LDY #$87
-        JSR s220D
-        LDY a238F
-        JMP j2330
+;--------------------------------------------------
+; Routine b22BD ($22BD) - '!=' and two-byte comparator handlers
+;--------------------------------------------------
+b22BD   CMP #$04          ; check for '!=' or '<>' operator prefix code (04)
+        BNE b22D6         ; if not comparator, fallback to single-character operator handler
+        LDA #$08          ; token code for '!=' operator descriptor
+        JSR s21D3         ; emit '!' descriptor into name stream
+        STY a238F         ; save current Y index for resuming copy after error emit
+        LDX #$78          ; high-byte for error emitter buffer page
+        LDY #$87          ; low-byte for error emitter buffer page
+        JSR s220D         ; emit error message if operator sequence invalid or buffer overflow
+        LDY a238F         ; restore Y index to correct continuation point
+        JMP j2330         ; resume expression parsing after handling '!='
 
-b22D6   CMP #$05
-        BNE b22E9
-        LDA #$1E
-        JSR s21D3
-        LDA (p49),Y
-        INY 
-        INY 
-        JSR s21D3
-        JMP j2330
+b22D6   CMP #$05        ; check if incoming operator code is $05 (start of comparator sequence)
+        BNE b22E9       ; if not, jump to next operator handler
+        LDA #$1E        ; load internal token code for this comparator operator
+        JSR s21D3       ; push comparator descriptor onto output stream
+        LDA (p49),Y     ; fetch next input byte for comparator operand
+        INY             ; advance input pointer past the byte
+        INY             ; skip over any extra byte in this multi-byte op sequence
+        JSR s21D3       ; emit second-byte descriptor for comparator
+        JMP j2330       ; resume main expression parsing loop
 
-b22E9   CMP #$07
-        BNE b2301
-        LDA #$09
-        JSR s21D3
-        LDA (p49),Y
-        INY 
-        JSR s21D3
-        LDA (p49),Y
-        INY 
-        JSR s21D3
-        JMP j2330
+b22E9   CMP #$07        ; check if operator code equals $07 (another two-byte operator)
+        BNE b2301       ; if not, continue to other handlers
+        LDA #$09        ; load token code for this two-byte operator
+        JSR s21D3       ; emit first byte descriptor
+        LDA (p49),Y     ; fetch second operator character
+        INY             ; advance pointer
+        JSR s21D3       ; emit second-byte descriptor
+        LDA (p49),Y     ; fetch optional third byte in sequence
+        INY             ; advance pointer
+        JSR s21D3       ; emit third-byte descriptor
+        JMP j2330       ; finish operator handling and loop
 
-b2301   CMP #$09
-        BNE b231A
-        LDA #$0A
-        JSR s21D3
-        STY a238F
-        LDX #$78
-        LDY #$87
-        JSR s220D
-        LDY a238F
-        JMP j2330
+b2301   CMP #$09        ; check if operator code equals $09 (prefix for error-driven handler)
+        BNE b231A       ; if not match, skip to next handler
+        LDA #$0A        ; load token code $0A for this operator descriptor
+        JSR s21D3       ; push operator descriptor onto output stream
+        STY a238F       ; save current Y index for error recovery
+        LDX #$78        ; set high-byte for error emitter buffer page
+        LDY #$87        ; set low-byte for error emitter buffer page
+        JSR s220D       ; invoke error emitter (s220D) if sequence invalid or overflow
+        LDY a238F       ; restore Y index after error emit
+        JMP j2330       ; resume main expression parsing loop       ; finish operator handling and loop
 
-b231A   CMP #$0A
-        BNE j2330
-        LDA #$0B
-        JSR s21D3
-        STY a238F
-        LDX #$78
-        LDY #$87
-        JSR s220D
-        LDY a238F
-j2330   STY a238F
-j2333   LDA (p49),Y
-        CMP #$09
-        BCC b2343
-        CMP #$0B
-        BNE b233F
-        INY 
-        INY 
-b233F   INY 
-        JMP j2333
+b231A   CMP #$0A        ; compare operator code to $0A (start of specific operator sequence)
+        BNE j2330       ; if not equal, jump to default handler at j2330
+        LDA #$0B        ; load token code $0B for this operator descriptor
+        JSR s21D3       ; push operator descriptor onto output stream
+        STY a238F       ; save Y (index) for error recovery
+        LDX #$78        ; set X to high-byte of error buffer page
+        LDY #$87        ; set Y to low-byte of error buffer page
+        JSR s220D       ; call error emitter to report unsupported operator or overflow
+        LDY a238F       ; restore Y index after error emission
 
-b2343   CMP #$07
-        BCC b2349
-        INY 
-        INY 
-b2349   LDA (p49),Y
-        JSR s21D0
-        CPY a238F
-        BEQ b2357
-        DEY 
-        JMP b2349
+j2330   STY a238F       ; re-store Y index for subsequent parsing
+j2333   LDA (p49),Y     ; fetch next input byte at pointer p49 + Y
+        CMP #$09        ; compare to $09 (operator code boundary)
+        BCC b2343       ; if less, branch to single-byte handler at b2343
+        CMP #$0B        ; else compare to $0B (extended operator code boundary)
+        BNE b233F       ; if not equal, go to skip step at b233F
+        INY             ; skip an additional byte for extended sequence
+        INY             ; skip another byte for extended sequence
 
-b2357   JSR s58F5
-        BCS b2385
-        LDY a238F
-        LDA (p49),Y
-        CMP #$0B
-        BNE b2385
-        LDY #$00
-        LDA (p49),Y
-        CMP #$07
-        BEQ b236F
-        CMP #$05
-b236F   BEQ b2385
-        JSR s24CE
-        JSR s24CE
-        JSR s24CE
-        LDA #$09
-        JSR s21D0
-        LDA #$00
-        JSR s21D0
-        RTS 
+b233F   INY             ; advance pointer past current operator code
+        JMP j2333       ; loop back to classification at j2333
 
-b2385   LDA #$09
-        JSR s21D0
-        LDA #$01
-        JMP s21D0
+b2343   CMP #$07        ; compare operator code to $07 (multi-character operator indicator)
+        BCC b2349       ; if code < $07, branch to single-character handler
+        INY             ; skip one extra byte for multi-character prefix
+        INY             ; skip second extra byte for multi-character prefix
 
-a238F   .BYTE $00
-j2390   JSR s58B3
-        BCC b239B
-        JSR s24ED
-        JMP j5649
+b2349   LDA (p49),Y     ; load next operator byte from input buffer
+        JSR s21D0       ; emit this operator byte via name descriptor emitter
+        CPY a238F       ; compare Y index to saved index (end of operator sequence)
+        BEQ b2357       ; if at saved index, operator fully emitted, continue at b2357
+        DEY             ; otherwise, decrement Y to reprocess remaining bytes
+        JMP b2349       ; loop to emit all parts of the multi-byte operator
 
-b239B   INC a18
-        JSR s694C
-        LDA a36
-        CMP #$0C
-        BEQ b23B7
-        LDA #$02
-        JSR s21D0
-        LDA #$01
-        JSR s21D0
-        LDX #$D7
-        LDY #$23
-        JMP j562D
+b2357   JSR s58F5       ; normalize next error character (skip control), sets carry if non-printable
+        BCS b2385       ; if carry set, skip extended operator handling
+        LDY a238F       ; restore saved input buffer index
+        LDA (p49),Y     ; load operator byte at restored position
+        CMP #$0B        ; check for extended operator code $0B
+        BNE b2385       ; if not $0B, skip extension
+        LDY #$00        ; reset Y index for extension sequence
+        LDA (p49),Y     ; load first byte of extension sequence
+        CMP #$07        ; compare to multi-character operator indicator
+        BEQ b236F       ; if match, branch to error handler
+        CMP #$05        ; compare to alternative variant code $05
+b236F   BEQ b2385       ; if match, skip error emission
+        JSR s24CE       ; emit descriptor for first extension byte
+        JSR s24CE       ; emit descriptor for second extension byte
+        JSR s24CE       ; emit descriptor for third extension byte
+        LDA #$09        ; load fallback token code for unsupported operator
+        JSR s21D0       ; emit fallback operator descriptor
+        LDA #$00        ; load terminator
+        JSR s21D0       ; emit terminator descriptor
+        RTS             ; return to expression parsing
 
-b23B7   LDA #$0C
-        JSR s21D3
-        LDX #$78
-        LDY #$87
-        JSR s220D
-        LDA #$02
-        JSR s21D0
-        LDA #$0A
-        JSR s21D0
-        LDA #$09
-        JSR s21D0
-        LDA #$01
-        JMP s21D0
+;--------------------------------------------------
+; b2385 ($2385) - Two-byte comparator continuation handler (e.g., '>=' second byte)
+;--------------------------------------------------
+b2385   LDA #$09       ; Load token code 0x09 for this two-byte comparator into A
+        JSR s21D0      ; Emit name descriptor: push token code onto output stream
+        LDA #$01       ; Prepare terminator code (0x01) for descriptor sequence
+        JMP s21D0      ; Emit terminator via name descriptor routine and return to parser
+
+; Temporary zero-page storage used by expression parser to remember Y offset
+
+a238F   .BYTE $00      ; Stores Y index across multi-byte operator parsing
+
+;--------------------------------------------------
+; j2390 ($2390) - Primary expression evaluator entry
+;--------------------------------------------------
+j2390   JSR s58B3      ; Skip whitespace and fetch next token, leave carry clear if operator follows
+        BCC b239B      ; If operator detected, branch to operator-specific handling
+
+        JSR s24ED      ; Otherwise, emit current symbol/operator token into output stream
+        JMP j5649      ; Jump to expression finalizer/cleanup routine
+
+b239B   INC a18         ; increment expression nesting depth counter
+        JSR s694C      ; normalize accumulator for descriptor emission
+        LDA a36        ; load current token class or operator code
+        CMP #$0C       ; compare to special operator identifier (0x0C)
+        BEQ b23B7      ; if match, branch to multi-compare handler
+        LDA #$02       ; load default descriptor code (e.g., value placeholder)
+        JSR s21D0      ; push descriptor into output stream
+        LDA #$01       ; load continuation flag or small literal
+        JSR s21D0      ; push continuation descriptor
+        LDX #$D7       ; set return address pointer low byte for dispatch
+        LDY #$23       ; set return address pointer high byte for dispatch
+        JMP j562D      ; jump back to expression evaluator loop
+
+;--------------------------------------------------
+; Label b23B7 ($23B7) - Handle specific operator/identifier sequence and emit descriptors
+;--------------------------------------------------
+b23B7   LDA #$0C        ; Load accumulator with token code $0C for multi-byte operator/identifier start
+        JSR s21D3       ; Push and test name length: emit descriptor for the loaded code into name stream
+        LDX #$78        ; Prepare high-byte of error emitter buffer page for overflow check
+        LDY #$87        ; Prepare low-byte of error emitter buffer page
+        JSR s220D       ; Call 'Program Too Big' error emitter if descriptor overflow occurs
+        LDA #$02        ; Load A with next descriptor code $02
+        JSR s21D0       ; Emit name descriptor for code $02
+        LDA #$0A        ; Load A with descriptor code $0A
+        JSR s21D0       ; Emit name descriptor for code $0A
+        LDA #$09        ; Load A with descriptor code $09
+        JSR s21D0       ; Emit name descriptor for code $09
+        LDA #$01        ; Load A with descriptor code $01 to terminate sequence
+        JMP s21D0       ; Jump to push-and-emit name descriptor (final byte)
 
         .TEXT " *"
         .TEXT "** UNDECLARED IDENTIFIER", $0D, $00
-j23F3   JSR s692A
-        BCC b23FC
-        LDA #$02
-        STA a9E
-b23FC   JSR s58B3
-        BCC b240A
-        LDX a8678
-        LDY a8679
-        JMP s24ED
 
-b240A   INC a18
-        LDA #$05
-        JSR s21D3
-        LDA a8678
-        JSR s21D3
-        LDA a8679
-        JSR s21D3
-        LDA #$02
-        JSR s21D0
-        LDA #$00
-        JSR s21D0
-        RTS 
+;--------------------------------------------------
+; Routine j23F3 ($23F3) - Handle Primary Expression Error or Symbol Emit
+;--------------------------------------------------
+j23F3   JSR s692A        ; attempt to parse next symbol/token, sets carry if error encountered
+        BCC b23FC        ; if carry clear (no error), jump to emit path
+        LDA #$02         ; error code 2 (invalid primary expression)
+        STA a9E          ; store error code in a9E
+b23FC   JSR s58B3        ; skip whitespace and fetch next token into A
+        BCC b240A        ; if carry clear (valid token), continue with symbol emission
+        LDX a8678        ; on error/resume, restore saved low pointer from a8678
+        LDY a8679        ; restore saved high pointer from a8679
+        JMP s24ED        ; emit descriptor for saved symbol and return
 
-j2428   JSR s58B3
-        BCC b2433
-        JSR s24ED
-        JMP j5649
+;--------------------------------------------------
+; Label b240A ($240A) - Emit Identifier or Constant Descriptor
+;--------------------------------------------------
+b240A   INC a18          ; increment expression nesting depth counter
+        LDA #$05         ; descriptor code for identifier/constant start
+        JSR s21D3        ; push descriptor byte
+        LDA a8678        ; fetch low byte of symbol pointer
+        JSR s21D3        ; emit low byte descriptor
+        LDA a8679        ; fetch high byte of symbol pointer
+        JSR s21D3        ; emit high byte descriptor
+        LDA #$02         ; descriptor code for identifier type
+        JSR s21D0        ; push type descriptor into output stream
+        LDA #$00         ; null terminator for descriptor
+        JSR s21D0        ; emit terminator
+        RTS              ; return from primary expression handler
 
-b2433   INC a18
-        LDA #$0D
-        JSR s21D3
-        LDX #$00
-b243C   LDA a8678,X
-        JSR s21D3
-        INX 
-        CPX #$04
+; Routine j2428 ($2428) - Prefix Expression or Operator Handler
+j2428   JSR s58B3       ; skip whitespace and get next token (carry clear if operator follows)
+        BCC b2433       ; if no operator token, branch to value handler
+        JSR s24ED       ; emit operator token into output
+        JMP j5649       ; finalize expression and return
+
+; Handler b2433 ($2433) - Process prefix operator sequence
+b2433   INC a18         ; increment expression nesting depth
+        LDA #$0D        ; descriptor code for prefix operator
+        JSR s21D3       ; push prefix operator descriptor
+        LDX #$00        ; index=0 to emit 4-byte operand address
+b243C   LDA a8678,X     ; load low/high bytes of operand address
+        JSR s21D3       ; emit each address byte as descriptor
+        INX             ; advance to next byte
+        CPX #$04        ; loop through 4 bytes
         BNE b243C
-        LDA #$03
-        JSR s21D0
-        LDA #$00
-        JSR s21D0
-        RTS 
+        LDA #$03        ; descriptor for pointer size (3 = 2-byte address + alignment)
+        JSR s21D0       ; emit size descriptor
+        LDA #$00        ; terminator descriptor
+        JSR s21D0       ; emit terminator
+        RTS             ; return to expression evaluator
 
-j2452   JSR s692A
-        BCC b245C
-        LDA #$05
-        STA a9E
-        RTS 
+;--------------------------------------------------
+; Routine j2452/b245C (lines 600–620): Prefix-Operator Handling
+;--------------------------------------------------
 
-b245C   INC a18
-        LDA #$0E
-        JSR s21D3
-        LDX #$00
-b2465   LDA a8678,X
-        JSR s21D3
-        INX 
-        CPX #$05
-        BNE b2465
-        LDA #$05
-        JSR s21D0
-        LDA #$00
-        JSR s21D0
-        RTS 
+j2452   JSR s692A        ; skip whitespace & fetch next token into A (sets carry on unexpected characters)
+        BCC b245C        ; if no carry (valid prefix), proceed to emit
 
-j247B   JSR s692A
-        BCC b2485
-        LDA #$01
-        STA a9E
-        RTS 
+        ; unsupported prefix operator encountered
+        LDA #$05         ; load error code for illegal operator
+        STA a9E          ; record error in error state
+        RTS              ; return to caller
 
-b2485   JSR s58B3
-        BCC b2490
-        JSR s24ED
-        JMP j5649
+b245C   INC a18          ; increment expression nesting depth
+        LDA #$0E         ; load token code for recognized prefix operator
+        JSR s21D3        ; emit prefix-operator descriptor into name stream
 
-b2490   INC a18
-        LDA #$0F
-        JSR s21D3
-        LDX #$00
-b2499   LDA a8678,X
-        JSR s21D3
-        INX 
-        CMP #$00
-        BNE b2499
-        LDA #$01
-        JSR s21D0
-        LDA #$09
-        JSR s21D0
-        LDA #$00
-        JSR s21D0
-        RTS 
+        LDX #$00         ; reset index X for operand bytes in temp buffer
+b2465   LDA a8678,X      ; fetch next byte of prefix operand
+        JSR s21D3        ; emit operand descriptor byte
+        INX              ; advance operand index
+        CPX #$05         ; compare to total operand length (5 bytes)
+        BNE b2465        ; loop until all operand bytes emitted
 
-s24B4   LDA #<p7E4D
-        STA a1E
-        LDA #>p7E4D
-        STA a1F
-        RTS 
+        LDA #$05         ; load end-of-expression descriptor code
+        JSR s21D0        ; finalize expression descriptor
+        LDA #$00         ; load terminator (zero)
+        JSR s21D0        ; emit terminator descriptor
+        RTS              ; return from prefix-handler
 
-j24BD   STY a24EB
-        LDY #$00
-        STA (p1E),Y
-        INC a1E
-        BNE b24CA
-        INC a1F
-b24CA   LDY a24EB
-        RTS 
+;--------------------------------------------------
+; Routine j247B ($247B) - Identifier or Constant Handler
+;--------------------------------------------------
+j247B   JSR s692A        ; lookup symbol: normalize case and search symbol table
+        BCC b2485        ; if carry clear (symbol found), branch to emit
+        LDA #$01         ; else set error flag for undefined identifier
+        STA a9E          ; store undefined-identifier indicator in zero-page
+        RTS              ; return to caller, abort expression parsing
 
-s24CE   STX a24EB
-        STY a24EC
-        LDY a1F
-        LDX a1E
-        BNE b24DB
-        DEY 
-b24DB   DEX 
-        STX a1E
-        STY a1F
-        LDY #$00
-        LDA (p1E),Y
-        LDX a24EB
-        LDY a24EC
-        RTS 
+;--------------------------------------------------
+; Continuation at b2485 ($2485) - Emit Identifier or Constant
+;--------------------------------------------------
+b2485   JSR s58B3        ; skip whitespace and fetch next token (sets carry for operators)
+        BCC b2490        ; if no operator follows, branch to emit name descriptor
+        JSR s24ED        ; otherwise emit current symbol/token into output stream
+        JMP j5649        ; jump to expression finalizer/cleanup
+
+;--------------------------------------------------
+; Routine b2490 ($2490) - Identifier Token Emitter
+;--------------------------------------------------
+
+b2490   INC a18         ; increment expression nesting depth counter
+        LDA #$0F        ; load name-length token code (0x0F) into A
+        JSR s21D3       ; push name-length descriptor to name stream
+        LDX #$00        ; clear X to start reading identifier characters
+
+b2499   LDA a8678,X     ; load next byte of identifier from name buffer a8678
+        JSR s21D3       ; emit character as name descriptor
+        INX             ; advance to next character index
+        CMP #$00        ; check for null-terminator (end of string)
+        BNE b2499       ; repeat until terminator encountered
+
+        LDA #$01        ; load token type for identifier into A
+        JSR s21D0       ; emit identifier token to output stream
+        LDA #$09        ; load code for end-of-identifier marker
+        JSR s21D0       ; emit end marker
+        LDA #$00        ; load zero terminator
+        JSR s21D0       ; emit final terminator byte
+        RTS             ; return from identifier emitter
+
+; Initialize pointer to token-dispatch table
+s24B4   LDA #<p7E4D    ; load low byte of address of p7E4D (token dispatch table)
+        STA a1E         ; store low byte into a1E (dispatch table pointer low)
+        LDA #>p7E4D    ; load high byte of address of p7E4D
+        STA a1F         ; store high byte into a1F (dispatch table pointer high)
+        RTS             ; return from subroutine
+
+; Write two-byte header for name-descriptor emitter and advance table pointer
+j24BD   STY a24EB      ; save current Y index in a24EB for later restoration
+        LDY #$00       ; reset Y index to 0
+        STA (p1E),Y    ; store Y (0) into memory pointed by p1E/p1F (writes header byte)
+        INC a1E        ; increment dispatch table pointer low byte
+        BNE b24CA      ; if did not wrap, skip high-byte increment
+        INC a1F        ; on wrap from $FF→$00, increment high byte of dispatch table pointer
+b24CA   LDY a24EB      ; restore original Y index from a24EB
+        RTS            ; return from header-write routine
+
+; Routine s24CE ($24CE) - Pop next dispatch table address and fetch byte
+s24CE   STX a24EB       ; Save original X (low index) into temporary a24EB
+        STY a24EC       ; Save original Y (high index) into temporary a24EC
+        LDY a1F         ; Load current pointer high-byte from a1F
+        LDX a1E         ; Load current pointer low-byte from a1E
+        BNE b24DB       ; If low-byte != 0, skip wrap handling
+        DEY             ; If low-byte = 0, decrement high-byte to handle borrow
+b24DB   DEX             ; Decrement low-byte of pointer
+        STX a1E         ; Store updated low-byte back to a1E
+        STY a1F         ; Store updated high-byte back to a1F
+        LDY #$00        ; Index Y = 0 for table fetch
+        LDA (p1E),Y     ; Fetch byte from dispatch table via pointer at p1E
+        LDX a24EB       ; Restore original X from temporary a24EB
+        LDY a24EC       ; Restore original Y from temporary a24EC
+        RTS             ; Return with A = fetched dispatch byte
 
 a24EB   .BYTE $00
 a24EC   .BYTE $00
-s24ED   TYA 
-        LDY #$00
-        STA (p1E),Y
-        TXA 
-        INY 
-        STA (p1E),Y
-        CLC 
-        LDA a1E
-        ADC #$02
-        STA a1E
-        BCC b2501
-        INC a1F
-b2501   RTS 
 
-s2502   SEC 
-        LDA a1E
-        SBC #$02
-        STA a1E
-        BCS b250D
-        DEC a1F
-b250D   LDY #$01
-        LDA (p1E),Y
-        TAX 
-        DEY 
-        LDA (p1E),Y
-        TAY 
-        RTS 
+;--------------------------------------------------
+; Routine s24ED ($24ED) - Write two-byte value into dispatch table and advance pointer
+;--------------------------------------------------
+; Inputs:
+;   A contains low byte of value to emit (was Y before transfer)
+;   X contains high byte of value to emit
+;   (p1E) points to the current write location in the output buffer
+; Outputs:
+;   Writes low byte at (p1E), high byte at (p1E+1)
+;   Advances the zero-page pointer a1E:a1F by 2
 
-        STX a2B
-        STY a2C
-        LDY #$09
-b251D   LDA (p2B),Y
-        STA (p1E),Y
-        DEY 
-        BPL b251D
-        CLC 
-        LDA a1E
-        ADC #$0A
-        STA a1E
-        BCC b252F
-        INC a1F
-b252F   RTS 
+s24ED   TYA              ; transfer Y (low index/offset) into A to emit low byte
+        LDY #$00         ; reset Y for first store
+        STA (p1E),Y      ; store low byte at *p1E
+        TXA              ; transfer X (high index/offset) into A
+        INY              ; set Y=1 for second store
+        STA (p1E),Y      ; store high byte at *p1E+1
+        CLC              ; clear carry for pointer adjustment
+        LDA a1E          ; load low byte of buffer pointer
+        ADC #$02         ; add 2 (two bytes emitted)
+        STA a1E          ; save updated low byte
+        BCC b2501        ; if no carry, skip high-byte increment
+        INC a1F          ; on carry, increment high byte of buffer pointer
+b2501   RTS              ; return to caller
 
-        SEC 
-        LDA a1E
-        SBC #$0A
-        STA a1E
-        BCS b253B
-        DEC a1F
-b253B   LDX a1E
-        LDY a1F
-        RTS 
+;--------------------------------------------------
+; Routine s2502 ($2502) - Back up pointer by two and fetch 16-bit value
+;   Inputs: a1E (low), a1F (high) = current pointer into buffer
+;   Outputs: X = high byte, Y = low byte of word at new pointer
+;   Clobbers: C flag, A, X, Y
+;--------------------------------------------------
+s2502   SEC             ; set carry for subtraction
+        LDA a1E          ; load low byte of pointer
+        SBC #$02         ; subtract 2 (pointer -= 2)
+        STA a1E          ; store updated low byte
+        BCS b250D        ; if carry set (no borrow), skip high-byte decrement
+        DEC a1F          ; borrow: decrement high byte of pointer
+b250D   LDY #$01         ; index = 1 -> point to high byte of word
+        LDA (p1E),Y      ; load high byte from memory at pointer+1
+        TAX              ; transfer high byte into X
+        DEY              ; index = 0 -> point to low byte of word
+        LDA (p1E),Y      ; load low byte from memory at pointer
+        TAY              ; transfer low byte into Y
+        RTS              ; return (X: high, Y: low)
 
-s2540   LDA #$00
-        STA a26D0
-        STA a26D1
-        STA a26D4
-        JSR s2502
-        TYA 
-        BPL b255F
-        EOR #$FF
-        TAY 
-        TXA 
-        EOR #$FF
-        TAX 
-        INX 
-        BNE b255C
-        INY 
-b255C   INC a26D4
-b255F   STX a26CC
-        STY a26CD
-        JSR s2502
-        TYA 
-        BPL b2579
-        EOR #$FF
-        TAY 
-        TXA 
-        EOR #$FF
-        TAX 
-        INX 
-        BNE b2576
-        INY 
-b2576   INC a26D4
-b2579   STX a26CE
-        STY a26CF
-        LDX #$10
-b2581   LDA a26CE
-        AND #$01
-        BEQ b259B
-        CLC 
-        LDA a26D0
-        ADC a26CC
-        STA a26D0
-        LDA a26D1
-        ADC a26CD
-        STA a26D1
-b259B   LSR a26D1
-        ROR a26D0
-        ROR a26CF
-        ROR a26CE
-        DEX 
-        BNE b2581
-        LDX a26CE
-        LDY a26CF
-        LDA a26D4
-        LSR 
-        BCC b25C2
-        TYA 
-        EOR #$FF
-        TAY 
-        TXA 
-        EOR #$FF
-        TAX 
-        INX 
-        BNE b25C2
-        INY 
-b25C2   JMP s24ED
+; Routine b251D ($251D) - Copy 10 Bytes Backward and Advance Pointer
 
-s25C5   JSR s25FF
-        LDX a26D2
-        LDY a26D3
-        ROR a26D4
-        BCC b25DF
-        TXA 
-        EOR #$FF
-        TAX 
-        TYA 
-        EOR #$FF
-        TAY 
-        INX 
-        BNE b25DF
-        INY 
-b25DF   JMP s24ED
+        STX a2B        ; save X into low byte of destination pointer
+        STY a2C        ; save Y into high byte of destination pointer
+        LDY #$09       ; start index at 9 (will copy bytes 9 down to 0)
+b251D   LDA (p2B),Y    ; load byte from source buffer at offset Y
+        STA (p1E),Y    ; store byte into destination buffer at same offset
+        DEY            ; decrement index
+        BPL b251D      ; if Y >= 0, repeat copy for next lower offset
+        CLC            ; clear carry for pointer increment
+        LDA a1E        ; load low byte of current output pointer
+        ADC #$0A       ; add 10 to skip past the just-written bytes
+        STA a1E        ; store updated low byte
+        BCC b252F      ; if no carry, high byte unchanged
+        INC a1F        ; else increment high byte of output pointer
+b252F   RTS            ; return to caller
 
-j25E2   JSR s25FF
-        LDX a26CE
-        LDY a26CF
-        ROR a26D6
-        BCC b25FC
-        TXA 
-        EOR #$FF
-        TAX 
-        TYA 
-        EOR #$FF
-        TAY 
-        INX 
-        BNE b25FC
-        INY 
-b25FC   JMP s24ED
+; Routine: subtract 10 from 16-bit pointer at a1F:a1E and return in X:Y
+;--------------------------------------------------
+        SEC             ; set carry for subtraction to 1 (enables borrow)
+        LDA a1E         ; load pointer low-byte into A
+        SBC #$0A        ; subtract 10 from low-byte
+        STA a1E         ; store adjusted low-byte back
+        BCS b253B       ; if carry set, no borrow occurred—skip decrement of high-byte
+        DEC a1F         ; borrow occurred, so decrement high-byte to complete 16-bit subtraction
+b253B   LDX a1E         ; load result low-byte into X for return
+        LDY a1F         ; load result high-byte into Y for return
+        RTS             ; return to caller with pointer in X:Y
 
-s25FF   LDA #$00
+;--------------------------------------------------
+; Routine s2540 ($2540) - 32-bit Shift-Accumulate Loop
+;--------------------------------------------------
+s2540   LDA #$00        ; clear low part of accumulator (a26D0)
+        STA a26D0       ; store 0 into a26D0
+        STA a26D1       ; store 0 into a26D1 (high byte)
+        STA a26D4       ; clear loop counter or flag
+        JSR s2502       ; bump pointer down by 2 bytes (reverse copy)
+        TYA             ; get signed high bit of pointer offset
+        BPL b255F       ; if positive, skip two's-complement adjust
+        EOR #$FF        ; take one's complement of A
+        TAY             ; restore complemented value into Y
+        TXA             ; move X into A
+        EOR #$FF        ; one's complement of X
+        TAX             ; restore into X
+        INX             ; increment X (two's-complement adjust)
+        BNE b255C       ; if not wrapped, skip increment Y
+        INY             ; increment Y when X wrapped
+b255C   INC a26D4       ; increment inner loop count
+b255F   STX a26CC       ; store computed X into a26CC (low part of divisor)
+        STY a26CD       ; store computed Y into a26CD (high part of divisor)
+        JSR s2502       ; adjust pointer again
+        TYA             ; test signed Y
+        BPL b2579       ; if positive, skip two's-complement adjust
+        EOR #$FF        ; complement Y
+        TAY             ; restore complemented Y
+        TXA             ; move X into A
+        EOR #$FF        ; complement A
+        TAX             ; restore complemented X
+        INX             ; increment X
+        BNE b2576       ; if not wrapped, skip increment Y
+        INY             ; increment Y when X wrapped
+b2576   INC a26D4       ; increment loop counter again
+b2579   STX a26CE       ; store X into a26CE (shift amount low)
+        STY a26CF       ; store Y into a26CF (shift amount high)
+        LDX #$10        ; set bit-iteration count (16)
+b2581   LDA a26CE       ; test LSB of shift count
+        AND #$01        ; isolate bit 0
+        BEQ b259B       ; if bit clear, skip addition step
+        CLC             ; clear carry for add
+        LDA a26D0       ; load low accumulator
+        ADC a26CC       ; add divisor low
+        STA a26D0       ; store result back
+        LDA a26D1       ; load high accumulator
+        ADC a26CD       ; add divisor high + carry
+        STA a26D1       ; store result back
+b259B   LSR a26D1       ; shift accumulator right: high byte
+        ROR a26D0       ; rotate low byte through carry
+        ROR a26CF       ; rotate shift-count high
+        ROR a26CE       ; rotate shift-count low
+        DEX             ; decrement iteration count
+        BNE b2581       ; loop until all bits processed
+        LDX a26CE       ; reload shift-count low
+        LDY a26CF       ; reload shift-count high
+        LDA a26D4       ; load final loop counter
+        LSR             ; divide counter by 2 (logical)
+        BCC b25C2       ; if no borrow, proceed
+        TYA             ; prepare Y complement
+        EOR #$FF        ; one's complement
+        TAY             ; back into Y
+        TXA             ; prepare X complement
+        EOR #$FF        ; one's complement
+        TAX             ; back into X
+        INX             ; adjust X
+        BNE b25C2       ; if no wrap, skip Y
+        INY             ; adjust Y
+b25C2   JMP s24ED       ; return to pointer copy routine
+
+;--------------------------------------------------
+; Routine s25C5 ($25C5) - Rotate-Right-Word
+;--------------------------------------------------
+s25C5   JSR s25FF       ; zero and adjust counters
+        LDX a26D2       ; load low part of offset
+        LDY a26D3       ; load high part of offset
+        ROR a26D4       ; rotate carry into counter
+        BCC b25DF       ; if no borrow, skip complement adjust
+        TXA             ; prepare X complement
+        EOR #$FF        ; one's complement
+        TAX             ; restore X
+        TYA             ; prepare Y complement
+        EOR #$FF        ; one's complement
+        TAY             ; restore Y
+        INX             ; increment X
+        BNE b25DF       ; if no wrap, skip Y
+        INY             ; increment Y
+b25DF   JMP s24ED       ; loop until pointer copy completes
+
+;--------------------------------------------------
+; Routine j25E2 ($25E2) - Rotate-Right-Double-Word
+;--------------------------------------------------
+j25E2   JSR s25FF       ; clear counters and flags
+        LDX a26CE       ; load 16-bit shift count low
+        LDY a26CF       ; load 16-bit shift count high
+        ROR a26D6       ; rotate highest accumulator byte
+        BCC b25FC       ; if no borrow, skip complement adjust
+        TXA
+        EOR #$FF
+        TAX
+        TYA
+        EOR #$FF
+        TAY
+        INX             ; adjust X
+        BNE b25FC       ; if no wrap, skip Y
+        INY             ; adjust Y
+b25FC   JMP s24ED      ; return to copy routine
+
+;--------------------------------------------------
+; Routine s25FF ($25FF) - Clear Accumulators & Setup
+;--------------------------------------------------
+s25FF   LDA #$00       ; clear all 4 accumulator bytes and counters
         STA a26D4
         STA a26D5
         STA a26D6
         STA a26D2
         STA a26D3
-        JSR s2502
-        TYA 
-        BPL b2627
-        INC a26D5
+        JSR s2502      ; adjust pointer back by 2
+        TYA
+        BPL b2627      ; if Y>=0, skip
+        INC a26D5      ; increment mid counters on wrap
         INC a26D4
+        EOR #$FF       ; complement Y
+        TAY
+        TXA
         EOR #$FF
-        TAY 
-        TXA 
-        EOR #$FF
-        TAX 
-        INX 
+        TAX
+        INX
         BNE b2627
-        INY 
-b2627   STX a26CC
-        STY a26CD
-        JSR s2502
-        TYA 
+        INY
+b2627   STX a26CC     ; store new divisor low
+        STY a26CD     ; store new divisor high
+        JSR s2502     ; adjust pointer again
+        TYA
         BPL b2644
         INC a26D6
         INC a26D4
         EOR #$FF
-        TAY 
-        TXA 
+        TAY
+        TXA
         EOR #$FF
-        TAX 
-        INX 
+        TAX
+        INX
         BNE b2644
-        INY 
-b2644   STX a26CE
-        STY a26CF
-        LDX #$01
-j264C   LDA a26CD
+        INY
+b2644   STX a26CE     ; store shift-count low
+        STY a26CF     ; store shift-count high
+        LDX #$01      ; start one-bit rotation
+j264C   LDA a26CD     ; test bit 6 of high count
         AND #$40
-        BNE b265D
-        ASL a26CC
+        BNE b265D     ; if set, go to subtract-path
+        ASL a26CC     ; else shift divisor left
         ROL a26CD
-        INX 
+        INX           ; increment X for next test
         JMP j264C
 
-b265D   ASL a26D2
+b265D   ASL a26D2     ; start shifting accumulator left
         ROL a26D3
-        SEC 
-        LDA a26CE
-        SBC a26CC
-        TAY 
-        LDA a26CF
-        SBC a26CD
-        BCC b267C
-        STY a26CE
+        SEC           ; prepare for subtraction
+        LDA a26CE     ; load shift-count low
+        SBC a26CC     ; subtract divisor low
+        TAY           ; store borrow flag in Y
+        LDA a26CF     ; load shift-count high
+        SBC a26CD     ; subtract divisor high + carry
+        BCC b267C     ; if no borrow after subtract, skip restore
+        STY a26CE     ; restore shift-count from Y
         STA a26CF
-        INC a26D2
-b267C   LSR a26CD
-        ROR a26CC
-        DEX 
-        BNE b265D
-        RTS 
+        INC a26D2     ; correct accumulator on borrow
+b267C   LSR a26CD     ; finish rotation: shift-count high right
+        ROR a26CC     ; rotate divisor low
+        DEX           ; decrement loop count
+        BNE b265D     ; repeat until all bits done
+        RTS           ; return to caller
 
-j2686   JSR s2502
-        STX a26CC
-        STY a26CD
-        JSR s2502
-        CLC 
-        TXA 
-        ADC a26CC
-        TAX 
-        TYA 
-        ADC a26CD
-        TAY 
-        JMP s24ED
+        ;--------------------------------------------------
+        ; j2686 ($2686) - 16‑bit Value Accumulator
+        ;--------------------------------------------------
+j2686   JSR s2502        ; backup pointer by 2, load bytes at (p1E): X=high1, Y=low1
+        STX a26CC         ; save high1 into a26CC
+        STY a26CD         ; save low1 into a26CD
+        JSR s2502        ; backup pointer by 2 again, load next bytes: X=high2, Y=low2
+        CLC               ; clear carry for 16‑bit addition
+        TXA               ; transfer high2 into A
+        ADC a26CC         ; add saved high1 (with carry=0) → high_sum
+        TAX               ; store high_sum back into X
+        TYA               ; transfer low2 into A
+        ADC a26CD         ; add saved low1 + carry → low_sum + adjust high if overflow
+        TAY               ; store low_sum back into Y
+        JMP s24ED         ; jump to byte‑write routine (writes Y then X) and advance pointer
 
-j26A0   JSR s2502
-        STX a26CC
-        STY a26CD
-        JSR s2502
-        SEC 
-        TXA 
-        SBC a26CC
-        TAX 
-        TYA 
-        SBC a26CD
-        TAY 
-        JMP s24ED
+j26A0   JSR s2502        ; backup pointer into X (low) and Y (high)
+        STX a26CC        ; save low byte of backed-up pointer
+        STY a26CD        ; save high byte of backed-up pointer
+        JSR s2502        ; backup pointer again (new value for subtraction)
+        SEC              ; prepare for subtraction (set carry)
+        TXA              ; move low byte into A
+        SBC a26CC        ; subtract saved low byte (compute low difference)
+        TAX              ; store low result in X
+        TYA              ; move high byte into A
+        SBC a26CD        ; subtract saved high byte with borrow (compute high difference)
+        TAY              ; store high result in Y
+        JMP s24ED        ; emit 16-bit difference via output helper
 
-j26BA   JSR s2502
-        TXA 
-        EOR #$FF
-        TAX 
-        TYA 
-        EOR #$FF
-        TAY 
-        INX 
-        BNE b26C9
-        INY 
-b26C9   JMP s24ED
+j26BA   JSR s2502         ; Pop 16-bit value from pointer stack: loads low byte into X, high byte into Y
+        TXA               ; Transfer low byte (X) into A
+        EOR #$FF          ; Invert all bits of low byte (one's complement)
+        TAX               ; Store inverted low byte back into X
+        TYA               ; Transfer high byte (Y) into A
+        EOR #$FF          ; Invert all bits of high byte
+        TAY               ; Store inverted high byte back into Y
+        INX               ; Add 1 to low byte (complete two's-complement negation)
+        BNE b26C9         ; If no overflow, skip high-byte carry
+        INY               ; Else, add carry to high byte
+b26C9   JMP s24ED         ; Emit negated 16-bit value back into output buffer and advance pointer
 
-a26CC   .BYTE $00
-a26CD   .BYTE $00
-a26CE   .BYTE $00
-a26CF   .BYTE $00
-a26D0   .BYTE $00
-a26D1   .BYTE $00
-a26D2   .BYTE $00
-a26D3   .BYTE $00
-a26D4   .BYTE $00
-a26D5   .BYTE $00
-a26D6   .BYTE $00
-a26D7   .BYTE $00
-a26D8   .BYTE $00
-a26D9   .BYTE $00
-a26DA   .BYTE $00
-a26DB   .BYTE $00
-a26DC   .BYTE $00
-a26DD   .BYTE $00
-a26DE   .BYTE $00
-a26DF   .BYTE $00
-a26E0   .BYTE $00
-a26E1   .BYTE $00
-a26E2   .BYTE $00
-a26E3   .BYTE $00
-a26E4   .BYTE $00
-a26E5   .BYTE $00
-a26E6   .BYTE $00
-s26E7   LDA #$00
-        STA a2D
-        STA a37
-        LDY #$7B
-        LDX #$CD
-        BNE b26F4
-        DEY 
-b26F4   DEX 
-        STX a34
-        STY a35
-        RTS 
+; workspace for multi-precision operations and scanning routines
+; Used by s2540–j26BA and related routines for arithmetic, shifting, and buffer management
 
-s26FA   JSR s2753
-        JSR s2767
-j2700   JSR s2753
-        JSR s278E
-        BCC b270F
-        LDX #$40
+; Result and operand registers
+ a26CC   .BYTE $00    ; Low byte of arithmetic result or shifting accumulator
+ a26CD   .BYTE $00    ; High byte of arithmetic result or carry flag holder
+ a26CE   .BYTE $00    ; Original low operand or input register for multi-byte ops
+ a26CF   .BYTE $00    ; Original high operand or input register for multi-byte ops
+
+; Intermediate registers for bitwise and rotate loops
+ a26D0   .BYTE $00    ; Low intermediate for rotate/shift
+ a26D1   .BYTE $00    ; High intermediate for rotate/shift
+ a26D2   .BYTE $00    ; Low operand for rotate/shift source
+ a26D3   .BYTE $00    ; High operand for rotate/shift source
+
+; Loop counters and indices
+ a26D4   .BYTE $00    ; Primary loop counter or bit index
+ a26D5   .BYTE $00    ; Auxiliary loop counter
+ a26D6   .BYTE $00    ; Secondary auxiliary counter
+ a26D7   .BYTE $00    ; Saved X index for multi-byte routines
+ a26D8   .BYTE $00    ; Saved Y index for multi-byte routines
+
+; Descriptor and token-state bytes
+ a26D9   .BYTE $00    ; Current name/token length or descriptor index
+ a26DA   .BYTE $00    ; Token scan flag or class code
+
+; Temporary storage for multi-byte carry propagation
+ a26DB   .BYTE $00    ; Temp low byte for carry propagation
+ a26DC   .BYTE $00    ; Temp high byte for carry propagation
+
+; Pointers and offsets for buffer pointers
+ a26DD   .BYTE $00    ; Offset low for buffer pointer operations
+ a26DE   .BYTE $00    ; Offset high for buffer pointer operations
+
+; Decimal digit adjustment bytes
+ a26DF   .BYTE $00    ; Low decimal adjustment value
+ a26E0   .BYTE $00    ; High decimal adjustment value
+ a26E1   .BYTE $00    ; Unused/reserved or further adjust byte
+
+; Scan-state and pointer registers
+ a26E2   .BYTE $00    ; Input scan counter or token state
+ a26E3   .BYTE $00    ; Buffer pointer low byte
+ a26E4   .BYTE $00    ; Buffer pointer high byte
+ a26E5   .BYTE $00    ; Secondary buffer pointer low byte
+ a26E6   .BYTE $00    ; Secondary buffer pointer high byte
+
+;--------------------------------------------------
+; Routine s26E7 ($26E7) - Scanner/Parser Initialization
+;--------------------------------------------------
+s26E7   LDA #$00        ; Load 0 into A
+        STA a2D         ;   Clear scanner dispatch low-byte pointer
+        STA a37         ;   Clear nesting-level counter/register
+        LDY #$7B        ; Load Y with high byte of dispatch table base ($7B)
+        LDX #$CD        ; Load X with low byte of dispatch table base ($CD)
+        BNE b26F4       ; Always taken (X != 0) to skip the next DEY
+        DEY             ; (never executed) would decrement Y if branch not taken
+b26F4   DEX             ; Decrement X to adjust start pointer (now $CC)
+        STX a34         ; Store adjusted low byte into pointer a34
+        STY a35         ; Store high byte into pointer a35
+        RTS             ; Return to caller
+
+;--------------------------------------------------
+; Routine s26FA ($26FA) - Initial Directive Processing Loop
+; Entry: Called once at startup to process compiler directives (#INCLUDE, #DEFINE, etc.)
+;--------------------------------------------------
+s26FA   JSR s2753        ; fetch next character into A (handles buffering & normalization)
+        JSR s2767        ; compute pointer into classification/jump table based on A
+
+j2700   JSR s2753        ; fetch next character (loop head)
+        JSR s278E        ; load classification code from directive table
+        BCC b270F        ; if carry clear (normal directive char), branch to handle
+        LDX #$40         ; otherwise, prepare default scan state for non-directive
+        LDY #$27         ; (X,Y hold return vector for j20F8)
+        JMP j20F8        ; return to main scanner loop (exit directive mode)
+
+b270F   CMP #$01         ; check for directive-start marker (e.g. '#')
+        BNE b2719        ; if not '#', skip to next classification
+        JSR s2767        ; re-map '#' into table pointer
+        JMP j273C        ; jump around directive-body handlers
+
+b2719   JSR s2764        ; increment nested-directive counter (enter directive body)
+        JSR s280E        ; prepare directive argument parsing (set up pointers)
+        BCC b2728        ; if no error, continue processing body
+        LDX #$40         ; on error, reset scan state
         LDY #$27
-        JMP j20F8
+        JMP j20F8        ; exit to main loop
 
-b270F   CMP #$01
-        BNE b2719
-        JSR s2767
-        JMP j273C
+b2728   LDA a34         ; load accumulated directive code index
+        CMP #$CD         ; compare against end-of-directive sentinel
+        BNE j273C        ; if not end, loop back to parse next char
+        LDA a35         ; confirm high byte of sentinel
+        CMP #$7B         ; ensure sentinel matched fully
+        BNE j273C        ; otherwise continue parsing
+        LDY #$00         ; complete directive: reset index
+        LDA (p34),Y     ; fetch first byte of directive payload
+        CMP #$54         ; compare to 'T' (example token)
+        BEQ b273F        ; branch if matched specific directive
+j273C   JMP j2700        ; loop back to j2700 for next character
 
-b2719   JSR s2764
-        JSR s280E
-        BCC b2728
-        LDX #$40
-        LDY #$27
-        JMP j20F8
+b273F   RTS              ; return after directive handled, back to main scanner
 
-b2728   LDA a34
-        CMP #$CD
-        BNE j273C
-        LDA a35
-        CMP #$7B
-        BNE j273C
-        LDY #$00
-        LDA (p34),Y
-        CMP #$54
-        BEQ b273F
-j273C   JMP j2700
+; Syntax-Error Directive Handlers
+;--------------------------------
+; Define the syntax-error message string (zero-terminated)
 
-b273F   RTS 
+.TEXT " *** SYNTAX ERROR", $0D, $00   ; Message printed on syntax error
+
+;--------------------------------------------------
+; Routine s2753 ($2753) - Syntax-Error Entry
+;--------------------------------------------------
+s2753   LDA a37           ; Load nesting counter (a37)
+        BNE b275F         ; If non-zero, skip initial setup
+        JSR s3587         ; Save parser state (f3E/f3F) for error context
+        STA a36           ; Store current token/char in a36
+        JMP j2763         ; Jump to return
+
+b275F   LDA a36           ; Load saved token/char into A
+        DEC a37           ; Decrement nesting counter, entering error state
+j2763   RTS               ; Return from error-entry setup
+
+;--------------------------------------------------
+; Routine s2764 ($2764) - Increment Nesting Counter
+;--------------------------------------------------
+s2764   INC a37           ; Increase nesting counter for nested directives
+        RTS               ; Return
 
         .TEXT " *** SYNTAX ERROR", $0D, $00
-s2753   LDA a37
-        BNE b275F
-        JSR s3587
-        STA a36
-        JMP j2763
 
-b275F   LDA a36
-        DEC a37
-j2763   RTS 
+; Routine s2764 ($2764) - Increment Directive Nesting Counter
+s2764   INC a37          ; a37 holds nesting counter for conditional directives (#IF depth)
+        RTS              ; return
 
-s2764   INC a37
-        RTS 
-
-s2767   INC a34
-        BNE b276D
-        INC a35
-b276D   LDA a36
+; Routine s2767 ($2767) - Advance Parse Dispatch Pointer and Compute Jump Table Offset
+s2767   INC a34          ; increment low byte of current dispatch pointer
+        BNE b276D        ; if no wrap, skip high-byte increment
+        INC a35          ; on wrap, increment high byte of dispatch pointer
+b276D   LDA a36          ; load current token code (index into jump-table base)
         LDY #$00
-        STA (p34),Y
-        LDA a36
-        SEC 
-        SBC #$01
-        STA a278C
-        ASL 
-        ADC a278C
-        ADC #$BC
-        STA a278C
+        STA (p34),Y      ; write low byte of jump-target vector at *p34
+        LDA a36          ; reload token code
+        SEC              ; prepare for subtract
+        SBC #$01         ; subtract 1 to make zero-based index
+        STA a278C        ; store in temp low-byte (a278C)
+        ASL              ; a278C <<= 1
+        ADC a278C        ; a278C = temp*2 + original = temp*3 (entry_size)
+        ADC #$BC         ; add base low-byte of jump-table address ($BC)
+        STA a278C        ; final low-byte of target address
         LDA #$00
-        ADC #$46
-        STA a278D
-        .BYTE $4C
+        ADC #$46         ; compute high-byte: base high + carry
+        STA a278D        ; store in temp high-byte (a278D)
+
+        .BYTE $4C        ; JMP opcode ('JMP' low in data)
 a278C   .BYTE $FF
 a278D   .BYTE $FF
-s278E   LDY #$00
-        LDA (p34),Y
-        STA a31
-        DEC a31
-        LDX a36
-        DEX 
-        LDY #$7E
-        JSR s27E4
-        CLC 
-        TXA 
-        ADC a31
-        BCC b27A5
-        INY 
-b27A5   PHA 
-        AND #$03
-        STA a31
-        LDA #$03
-        SEC 
-        SBC a31
-        STA a27E3
-        PLA 
-        STY a31
+
+; Label s278E ($278E) - Dispatch to Next Parse Routine from Jump Table
+s278E   LDY #$00         ; start index into jump-table word (2-byte entries)
+        LDA (p34),Y      ; fetch low-byte of dispatch pointer
+        STA a31          ; save in a31
+        DEC a31          ; adjust offset index (entry size = 2 bytes)
+        LDX a36          ; reload token code
+        DEX              ; index = token_code - 1
+        LDY #$7E         ; high-byte of script area (fixed)
+        JSR s27E4        ; compute vector table page/offset in a2B:a2C
+        CLC              ; clear carry for addition
+        TXA              ; transfer index (token_code-1)
+        ADC a31          ; add offset within table entry
+        BCC b27A5        ; if no carry into Y, skip adjust
+        INY              ; else increment high-byte page
+b27A5   PHA              ; save accumulator
+        AND #$03         ; mask to get byte-count (low 2 bits)
+        STA a31          ; store length in a31
+        LDA #$03         ; full entry size in low
+        SEC              ; subtract length
+        SBC a31          ; compute remaining bytes to skip
+        STA a27E3        ; save in a27E3
+        PLA              ; restore accumulator
+        STY a31          ; restore Y (high-byte of page)
+        LSR a31          ; divide length by 2 twice to get shift count
+        ROR              ; adjust for word alignment
         LSR a31
-        ROR 
-        LSR a31
-        ROR 
-        CLC 
-        ADC #$85
-        STA a2B
-        LDA a31
-        ADC #$3C
-        STA a2C
-        LDY #$00
-        LDA (p2B),Y
-        LDX a27E3
-        BEQ b27D4
-b27CF   LSR 
-        LSR 
-        DEX 
-        BNE b27CF
-b27D4   AND #$03
-        BNE b27DA
-        SEC 
-        RTS 
+        ROR              ; residual
+        CLC              ; clear carry for addition
+        ADC #$85         ; add low-byte of vector base ($85)
+        STA a2B          ; set dispatch pointer low-byte
+        LDA a31          ; get high-byte of pointer
+        ADC #$3C         ; add high-byte offset ($3C)
+        STA a2C          ; set dispatch pointer high-byte
 
-b27DA   CMP #$03
-        BEQ b27E0
-        CLC 
-        RTS 
+        LDY #$00         ; prepare to read next char
+        LDA (p2B),Y      ; peek next input character (token following)
+        LDX a27E3        ; number of prefix bytes to skip
+        BEQ b27D4        ; if none, skip strip loop
+b27CF   LSR              ; strip first half of table data
+        LSR              ; strip second half
+        DEX              ; decrement count
+        BNE b27CF        ; repeat for each extra byte
+b27D4   AND #$03         ; mask page offset to correct alignment
+        BNE b27DA        ; if extra adjust needed, skip return
+        SEC              ; no extra => set carry so return via JMP ($...) uses a2B:a2C
+        RTS              ; return via indirect table jump
 
-b27E0   JMP j7995
+    ;--------------------------------------------------
+    ; b27DA: decide if we handle a 3-byte dispatch or return
+b27DA   CMP #$03        ; compare parsed-byte count (in A) to 3
+        BEQ b27E0       ; if equal, go to extended-length handler
+        CLC             ; otherwise clear carry (set 'no special case')
+        RTS             ; return to caller
 
-a27E3   .BYTE $00
-s27E4   STX a280B
-        STY a280C
+b27E0   JMP j7995       ; jump into dispatch table for 3-byte sequence
+
+    ; temporary storage for computed offset
+
+a27E3   .BYTE $00      ; holds carry-accumulated bits count
+
+    ;--------------------------------------------------
+    ; s27E4: compute a rotated-offset for dispatch using bit-rotation algorithm
+s27E4   STX a280B       ; save low-byte of rotation word
+        STY a280C       ; save high-byte of rotation word
         LDA #$00
-        STA a280D
-        LDX #$08
-b27F1   ASL 
-        ROL a280D
-        ASL a280B
-        BCC b2803
-        CLC 
-        ADC a280C
-        BCC b2803
-        INC a280D
-b2803   DEX 
-        BNE b27F1
-        TAX 
-        LDY a280D
-        RTS 
+        STA a280D       ; clear rotation-bit accumulator
+        LDX #$08       ; loop for 8 bits (one byte width)
 
-a280B   .BYTE $00
-a280C   .BYTE $00
-a280D   .BYTE $00
-s280E   LDA #$00
-        LDY #$01
-        STA (p34),Y
-        LDA #$06
-        STA a31
-        DEC a31
-j281A   SEC 
-        LDA a34
-        SBC a31
-        STA a2B
-        LDX a35
-        BCS b2826
-        DEX 
-b2826   STX a2C
-        CPX #$7B
-        BCS b2831
-        DEC a31
-        JMP j281A
+b27F1   ASL a280C       ; shift high-byte left, MSB -> carry
+        ROL a280D       ; rotate carry into LSB of accumulator
+        ASL a280B       ; shift low-byte left, carry->high byte
+        BCC b2803       ; if no carry from low-byte, skip overflow handling
+        CLC             ; clear carry for ADC operation
+        ADC a280C       ; add carry overflow back into high-byte
+        BCC b2803       ; if still no overflow, skip bit-count increment
+        INC a280D       ; count an extra bit for overflow
 
-b2831   BNE b283E
-        LDA a2B
-        CMP #$CD
-        BCS b283E
-        DEC a31
-        JMP j281A
+b2803   DEX             ; decrement bit counter
+        BNE b27F1       ; loop until all bits processed
 
-b283E   JSR s28A6
-        BCS b2849
-        DEC a31
-        BPL j281A
-        SEC 
-        RTS 
+        TAX             ; use X = low-byte of computed offset
+        LDY a280D       ; use Y = bit-count (rotation depth)
+        RTS             ; return, with X:Y = rotated index
 
-b2849   LDA a2B
-        STA a34
-        LDA a2C
-        STA a35
-        LDY #$00
-j2853   LDA (p32),Y
-        BEQ b285B
-        INY 
-        JMP j2853
+; Data scratch bytes for shift routine
 
-b285B   INY 
-        LDA (p32),Y
-        CMP #$C0
-        BCC b2865
-        JMP j51CC
+_a280B:	.BYTE $00	; scratch high-order accumulator (initially 0)
+_a280C:	.BYTE $00	; scratch mid-order accumulator (initially 0)
+_a280D:	.BYTE $00	; scratch low-order accumulator (initially 0)
 
-b2865   LDY #$00
-        STA (p34),Y
-        SEC 
-        LDA a38
-        SBC #$24
-        STA a2B
-        LDA a39
-        SBC #$2C
-        STA a2C
-        LSR 
-        STA a31
-        LDA a2B
-        ROR 
-        CLC 
-        ADC a2B
-        STA a2B
-        LDA a2C
-        ADC a31
-        STA a2C
-        CLC 
-        LDA a2B
-        ADC #$78
-        STA a2B
-        LDA a2C
-        ADC #$2D
-        STA a2C
-        LDY #$01
-        LDA (p2B),Y
-        STA a28A2
-        INY 
-        LDA (p2B),Y
-        STA a28A3
-        .BYTE $20
-a28A2   .BYTE $FF
-a28A3   .BYTE $FF,$18,$60
-s28A6   LDA #<p2C24
-        STA a2936
-        LDA #>p2C24
-        STA a2937
-        LDA #<p2D76
-        STA a2938
-        LDA #>p2D76
-        STA a2939
-j28BA   LDA a2939
-        CMP a2937
-        BCS b28C3
-        RTS 
+;--------------------------------------------------
+; Routine s280E ($280E) – Rotate/Multi-Precision Shift Setup
+;--------------------------------------------------
+s280E:
+    LDA #$00       ; clear accumulator A
+    LDY #$01       ; set index Y=1 for second byte operations
+    STA (p34),Y    ; store 0 into buffer at address pointed by p34+Y
+    LDA #$06       ; load shift count (6 bits) into A
+    STA a31        ; save shift count into a31
+    DEC a31        ; decrement to prepare loop (will execute 6 times)
 
-b28C3   BNE b28CE
-        LDA a2938
-        CMP a2936
-        BCS b28CE
-        RTS 
+j281A:
+    SEC            ; set carry for subtraction
+    LDA a34        ; load low-byte of the value to shift
+    SBC a31        ; subtract loop counter from low-byte
+    STA a2B        ; store result as low byte of pointer (p2B)
+    LDX a35        ; load high-byte of the value into X
+    BCS b2826      ; if no borrow from subtraction, skip X decrement
+    DEX            ; adjust high byte when borrow occurred
 
-b28CE   CLC 
-        LDA a2936
-        ADC a2938
-        STA a38
-        LDA a2937
-        ADC a2939
-        LSR 
-        ROR a38
-        STA a39
-        LDA #$24
-        AND #$01
-        BNE b28F1
-        LDA a38
-        AND #$FE
-        STA a38
-        JMP j28F7
+b2826:
+    STX a2C        ; store X as high byte of pointer (p2C)
+    CPX #$7B       ; compare high byte against buffer limit ($7B)
+    BCS b2831      ; if pointer >= end, branch to end of loop
+    DEC a31        ; decrement shift-count counter
+    JMP j281A      ; repeat subtraction/store until counter reaches zero
 
-b28F1   LDA a38
-        ORA #$01
-        STA a38
-j28F7   LDY #$00
-        LDA (p38),Y
-        CLC 
-        ADC #$3A
-        STA a32
-        INY 
-        LDA (p38),Y
-        ADC #$29
-        STA a33
-        LDX #$FF
-        JSR s3A84
-        BNE b2910
-        SEC 
-        RTS 
+;--------------------------------------------------
+; Section b2831–b2849: Case-Label Range Loop and Dispatch
+;--------------------------------------------------
 
-b2910   BCS b2924
-        SEC 
-        LDA a38
-        SBC #$02
-        STA a2938
-        LDA a39
-        SBC #$00
-        STA a2939
-        JMP j2933
+b2831   BNE b283E        ; if X (after CPX #$7B) != '{' ($7B), branch to dispatch handler
+        LDA a2B          ; load low byte of computed pointer into A
+        CMP #$CD         ; compare pointer low byte to end-marker ($CD)
+        BCS b283E        ; if pointer >= end-marker, branch to dispatch
+        DEC a31          ; decrement remaining count (a31)
+        JMP j281A        ; repeat loop at j281A for next element
 
-b2924   CLC 
-        LDA a38
-        ADC #$02
-        STA a2936
-        LDA a39
-        ADC #$00
-        STA a2937
-j2933   JMP j28BA
+b283E   JSR s28A6        ; call routine to load/update range table pointers
+        BCS b2849        ; if carry set (successful range match), skip decrement
+        DEC a31          ; on range lookup failure, decrement remaining count
+        BPL j281A        ; if remaining count >= 0, loop back to j281A
+        SEC              ; set carry to signal loop termination
+        RTS              ; return (carry indicates no more ranges)
 
-a2936   .BYTE $00
-a2937   .BYTE $00
-a2938   .BYTE $00
-a2939   .BYTE $00,$01,$02,$00,$60,$01,$74,$02
-        .BYTE $00,$60,$05,$7D,$00,$7D,$09,$7D
-        .BYTE $00,$7D,$0C,$0D,$00,$FF,$0C,$58
-        .BYTE $0D,$00,$57,$0C,$5A,$0D,$00,$7E
-        .BYTE $0C,$5A,$60,$0D,$00,$7E,$0C,$5F
-        .BYTE $0D,$00,$5F,$0C,$60,$0D,$00,$60
-        .BYTE $0C,$70,$0D,$00,$7D,$0D,$00,$6C
-        .BYTE $0E,$00,$60,$0E,$5F,$00,$5F,$0E
-        .BYTE $60,$00,$60,$0E,$7D,$00,$7D,$11
-        .BYTE $7D,$00,$7D,$14,$7D,$00,$7D,$15
-        .BYTE $7D,$00,$7D,$1C,$00,$FE,$2B,$2C
-        .BYTE $00,$64,$2B,$55,$65,$2C,$00,$64
-        .BYTE $2B,$62,$13,$2C,$00,$63,$2B,$62
-        .BYTE $2C,$00,$63,$2B,$65,$2C,$00,$64
-        .BYTE $2D,$7D,$00,$7D,$2F,$00,$5B,$30
-        .BYTE $00,$5B,$31,$00,$5B,$32,$00,$5B
-        .BYTE $33,$00,$5B,$34,$00,$5C,$35,$00
-        .BYTE $5C,$35,$36,$00,$5C,$36,$00,$5C
-        .BYTE $37,$00,$5C,$37,$36,$00,$5C,$37
-        .BYTE $39,$00,$5C,$38,$00,$5C,$38,$36
-        .BYTE $00,$5C,$39,$00,$5C,$3A,$00,$5C
-        .BYTE $3B,$2B,$55,$2C,$00,$61,$3B,$4B
-        .BYTE $2B,$55,$2C,$00,$61,$3B,$4E,$00
-        .BYTE $61,$3C,$2B,$55,$2C,$00,$61,$3C
-        .BYTE $4B,$2B,$55,$2C,$00,$61,$3C,$4E
-        .BYTE $00,$61,$3D,$0C,$70,$0D,$00,$67
-        .BYTE $3D,$3D,$70,$00,$54,$3E,$0C,$70
-        .BYTE $0D,$00,$68,$40,$66,$00,$69,$41
-        .BYTE $0C,$1C,$00,$6A,$41,$0C,$70,$1C
-        .BYTE $00,$6A,$42,$0C,$70,$0D,$00,$6D
-        .BYTE $43,$74,$00,$6E,$44,$1B,$66,$00
-        .BYTE $66,$45,$1C,$00,$66,$46,$1C,$00
-        .BYTE $66,$47,$1C,$00,$66,$47,$70,$1C
-        .BYTE $00,$66,$48
-        .BYTE $4B,$00,$6F,$49,$7D,$00,$7D,$49
-        .BYTE $7E,$00,$7D,$4B,$00,$7D,$4B,$1B
-        .BYTE $66,$00,$66,$4B,$57,$55,$64,$00
-        .BYTE $56,$4B,$57,$64,$00,$56,$4C,$00
-        .BYTE $7D,$4D,$00,$5F,$4E,$00,$5C,$4F
-        .BYTE $00,$7D,$50,$00,$7D,$51,$00,$7D
-        .BYTE $52,$00,$7D,$53,$00,$58,$55,$00
-        .BYTE $54,$55,$56,$00,$55,$55,$59,$00
-        .BYTE $55,$56,$00,$55,$58,$13,$53,$00
-        .BYTE $58,$59,$00,$55,$5A,$1C,$00,$59
-        .BYTE $5A,$5D,$1C,$00,$59,$5A,$5D,$57
-        .BYTE $55,$64,$00,$56,$5A,$5D,$57,$64
-        .BYTE $00,$56,$5B
-        .BYTE $00,$5A,$5B,$5C,$00,$5A,$5C,$00
-        .BYTE $5A,$5D,$13,$5E,$00,$5D,$5E,$00
-        .BYTE $5D,$5F,$00,$5E,$5F,$01,$02,$00
-        .BYTE $5F,$5F,$01,$74,$02,$00,$5F,$5F
-        .BYTE $0C,$0D,$00,$5F,$5F,$21,$2B,$62
-        .BYTE $13,$2C,$00,$5E,$5F,$21,$2B,$62
-        .BYTE $2C,$00,$5E,$5F,$21,$74,$00,$5E
-        .BYTE $60,$01,$02
-        .BYTE $00,$60,$60,$01,$74,$02,$00,$60
-        .BYTE $60,$0C,$0D,$00
-        .BYTE $60,$61,$00,$5C,$62,$13,$63,$00
-        .BYTE $62
-        .BYTE $63,$00,$62,$64,$00,$66,$65,$59
-        .BYTE $00,$65,$65,$66,$00,$65,$66,$00
-        .BYTE $65,$67,$66,$00,$66,$67,$66,$3F
-        .BYTE $66,$00,$66
-        .BYTE $68,$66,$00,$66,$69,$3E,$0C,$70
-        .BYTE $0D,$1C,$00,$66,$6A,$6B,$6C,$66
-        .BYTE $00,$66,$6D,$66,$00,$66,$6E,$1B
-        .BYTE $66,$00,$66,$6F,$1C,$00,$66,$70
-        .BYTE $0D,$00,$6C,$70,$13,$71,$00,$70
-        .BYTE $70,$1C,$00,$FD,$71,$00,$70,$72
-        .BYTE $00,$71,$73,$00,$72,$73,$27,$73
-        .BYTE $1B,$73,$00,$72,$73,$29,$74,$00
-        .BYTE $73,$74,$00,$FC,$74,$0A
-        .BYTE $75,$00,$74,$75,$00,$74,$75,$28
-        .BYTE $76,$00,$75,$76,$00,$75,$76,$03
-        .BYTE $77,$00,$76,$77,$00,$76,$77,$09
-        .BYTE $78,$00,$77,$78,$00,$77,$78,$06
-        .BYTE $79,$00,$78,$78,$22,$79,$00,$78
-        .BYTE $79,$00,$78,$79,$1D,$7A,$00,$79
-        .BYTE $79,$1F,$7A,$00,$79,$79,$23,$7A
-        .BYTE $00,$79,$79,$25,$7A,$00,$79,$7A
-        .BYTE $00,$79,$7A,$1E,$7B,$00,$7A,$7A
-        .BYTE $24,$7B,$00,$7A,$7B,$00,$7A,$7B
-        .BYTE $10,$7C,$00,$7B,$7B,$14,$7C,$00
-        .BYTE $7B,$7C,$00,$7B,$7C,$07,$7D,$00
-        .BYTE $7C,$7C,$0E,$7D,$00,$7C,$7C,$19
-        .BYTE $7D,$00,$7C,$7D,$00,$7C,$7D,$01
-        .BYTE $74
-        .BYTE $02,$00,$7D,$7D,$04,$71,$00,$71
-        .BYTE $7D,$08,$71,$00,$71,$7D,$0B,$71
-        .BYTE $00,$71,$7D,$0C,$0D,$00,$7D,$7D
-        .BYTE $0C,$70,$0D,$00,$7D,$7D,$0F,$71
-        .BYTE $00,$71,$7D,$11,$00,$7D,$7D,$12
-        .BYTE $71,$00,$71,$7D,$15,$00,$7D,$7D
-        .BYTE $16,$71,$00,$71,$7D,$17,$4C,$00
-        .BYTE $7D,$7D,$18,$4C,$00,$7D,$7D,$1A
-        .BYTE $71,$00,$71,$7D,$20,$71,$00,$71
-        .BYTE $7D,$21,$71,$00,$71,$7D,$26,$71
-        .BYTE $00,$71,$7D,$2A,$71,$00,$71,$7E
-        .BYTE $7D,$00,$7D
-p2C24   .BYTE $00,$00,$04,$00,$09,$00,$0D,$00
-        .BYTE $11,$00,$15,$00
-        .BYTE $1A,$00,$1F,$00,$25,$00,$2A,$00
-        .BYTE $2F,$00,$34,$00,$37,$00,$3A,$00
-        .BYTE $3E,$00,$42,$00,$46,$00,$4A,$00
-        .BYTE $4E,$00,$52,$00,$55,$00,$59,$00
-        .BYTE $5F,$00,$65,$00,$6A,$00,$6F,$00
-        .BYTE $73,$00,$76,$00,$79,$00,$7C,$00
-        .BYTE $7F,$00,$82,$00,$85,$00,$88,$00
-        .BYTE $8C,$00,$8F,$00,$92,$00,$96,$00
-        .BYTE $9A,$00,$9D,$00,$A1,$00,$A4,$00
-        .BYTE $A7,$00,$AD,$00,$B4,$00,$B8,$00
-        .BYTE $BE,$00,$C5,$00,$C9,$00,$CF,$00
-        .BYTE $D4,$00,$DA,$00,$DE,$00,$E3,$00
-        .BYTE $E9,$00,$EF,$00,$F3,$00,$F8,$00
-        .BYTE $FC,$00,$00,$01,$04,$01,$09,$01
-        .BYTE $0D,$01,$11,$01,$15,$01,$18,$01
-        .BYTE $1D,$01,$23,$01,$28,$01,$2B,$01
-        .BYTE $2E,$01,$31,$01,$34,$01,$37,$01
-        .BYTE $3A,$01,$3D,$01,$40,$01,$43,$01
-        .BYTE $47,$01,$4B,$01,$4E,$01,$53,$01
-        .BYTE $56,$01,$5A,$01,$5F,$01,$66,$01
-        .BYTE $6C,$01,$6F,$01,$73,$01,$76,$01
-        .BYTE $7B,$01,$7E,$01,$81,$01,$86,$01
-        .BYTE $8C,$01,$91,$01,$99,$01,$A0,$01
-        .BYTE $A5,$01,$AA,$01,$B0,$01,$B5,$01
-        .BYTE $B8,$01,$BD,$01,$C0,$01,$C3,$01
-        .BYTE $C7,$01,$CB,$01,$CE,$01,$D2,$01
-        .BYTE $D8,$01,$DC,$01,$E4,$01,$EA,$01
-        .BYTE $EE,$01,$F3,$01,$F7,$01,$FB,$01
-        .BYTE $00,$02,$04,$02,$07,$02,$0A,$02
-        .BYTE $0D,$02,$14,$02,$19,$02,$1C,$02
-        .BYTE $21,$02,$24,$02,$29,$02,$2C,$02
-        .BYTE $31,$02,$34,$02,$39,$02,$3C,$02
-        .BYTE $41,$02,$46,$02,$49,$02,$4E,$02
-        .BYTE $53,$02,$58,$02,$5D,$02,$60,$02
-        .BYTE $65,$02,$6A,$02,$6D,$02,$72,$02
-        .BYTE $77,$02,$7A,$02,$7F,$02,$84,$02
-        .BYTE $89,$02,$8C,$02,$92,$02,$97,$02
-        .BYTE $9C,$02,$A1,$02,$A6,$02,$AC,$02
-        .BYTE $B1,$02,$B5,$02,$BA,$02,$BE,$02
-        .BYTE $C3,$02,$C8,$02,$CD,$02,$D2,$02
-        .BYTE $D7,$02,$DC,$02,$E1,$02
-p2D76   .BYTE $E6,$02
-        JMP j3472
+;---- Section b2849–b2865: Restore pointer, scan dispatch table, and handle extended cases ----
 
-        JMP j3489
+b2849   LDA a2B       ; Load low byte of computed dispatch pointer into A
+        STA a34       ; Restore pointer low byte to a34 for next lookup
+        LDA a2C       ; Load high byte of computed dispatch pointer into A
+        STA a35       ; Restore pointer high byte to a35
+        LDY #$00      ; Reset index Y = 0 to start table scan
 
-        JMP j7324
+j2853   LDA (p32),Y   ; Fetch byte from dispatch table via pointer p32+Y
+        BEQ b285B     ; If byte == 0, end of table—branch to C0 check
+        INY           ; Otherwise, increment Y to advance through table
+        JMP j2853     ; Repeat scan until end-of-table marker
 
-        JMP j30B3
+b285B   INY           ; Skip past the zero terminator to first actual entry
+        LDA (p32),Y   ; Fetch the dispatch code at current index
+        CMP #$C0      ; Compare against 0xC0 threshold (extended-case marker)
+        BCC b2865     ; If below 0xC0, branch to normal-case handler at b2865
+        JMP j51CC     ; Else jump to j51CC for extended-case dispatch
 
+b2865   LDY #$00          ; start with index 0 for address pointer adjustment
+        STA (p34),Y     ; write 0 at buffer pointer (zero out first byte)
+        SEC             ; set carry for subtraction
+        LDA a38         ; load high byte of original address
+        SBC #$24        ; subtract low page offset (0x24)
+        STA a2B         ; store adjusted low byte to pointer p2B
+        LDA a39         ; load low byte of original address
+        SBC #$2C        ; subtract high page offset (0x2C)
+        STA a2C         ; store adjusted high byte to pointer p2C
+        LSR             ; shift carry into A, dividing previous high-byte result by 2
+        STA a31         ; store result in a31 (used for carry propagate)
+        LDA a2B         ; reload low byte of adjusted pointer
+        ROR             ; rotate right through carry to incorporate bit0 of a31
+        CLC             ; clear carry for addition
+        ADC a2B         ; add original low pointer
+        STA a2B         ; update low pointer
+        LDA a2C         ; reload high pointer
+        ADC a31         ; add bit carried from low byte
+        STA a2C         ; update high pointer
+        CLC             ; clear carry for next addition
+        LDA a2B         ; reload adjusted low pointer
+        ADC #$78        ; add page offset 0x78 to wrap back into table region
+        STA a2B         ; update low pointer
+        LDA a2C         ; reload adjusted high pointer
+        ADC #$2D        ; add high offset 0x2D for table base hi-byte
+        STA a2C         ; update high pointer
+        LDY #$01        ; set index to 1 for fetching data bytes
+        LDA (p2B),Y     ; fetch first byte from data table at pointer+1
+        STA a28A2       ; store into temporary storage a28A2
+        INY             ; increment index
+        LDA (p2B),Y     ; fetch second byte from table
+        STA a28A3       ; store into a28A3
+                     
+        .BYTE $20       ; literal byte 0x20 inserted here (separator or terminator)
+ a28A2  .BYTE $FF       ; default fill value for table start
+ a28A3  .BYTE $FF,$18,$60  ; default bytes, followed by reserved data
+       
+ s28A6   LDA #<p2C24     ; load low byte of lookup-table address p2C24
+         STA a2936       ; store into a2936 (low)
+         LDA #>p2C24     ; load high byte of p2C24
+         STA a2937       ; store into a2937 (high)
+         LDA #<p2D76     ; load low byte of secondary table p2D76
+         STA a2938       ; store into a2938
+         LDA #>p2D76     ; load high byte of secondary table
+         STA a2939       ; store into a2939
+ j28BA   LDA a2939       ; load high pointer of secondary table
+         CMP a2937       ; compare to high pointer of primary table
+         BCS b28C3       ; if above or equal, branch to table rollover handler
+         RTS             ; else return to caller
+
+;--------------------------------------------------
+; Section: Compute new pointer based on table offsets and ensure alignment
+;--------------------------------------------------
+b28C3   BNE b28CE        ; if HIGH_OFFSET != HIGH_BOUND, skip bounds check
+        LDA a2938        ; load current offset low-byte (index into table)
+        CMP a2936        ; compare with table start low-byte
+        BCS b28CE        ; if offset >= table start, skip exit
+        RTS              ; out-of-bounds: return immediately
+
+b28CE   CLC              ; begin 16-bit addition of table pointers
+        LDA a2936        ; load table start low-byte
+        ADC a2938        ; add current offset low-byte
+        STA a38          ; store updated pointer low-byte
+        LDA a2937        ; load table start high-byte
+        ADC a2939        ; add current offset high-byte and carry
+        LSR              ; divide result by 2 to adjust format
+        ROR a38          ; rotate carry into pointer low-byte
+        STA a39          ; store updated pointer high-byte
+        LDA #$24         ; load alignment mask constant
+        AND #$01         ; test LSB of mask
+        BNE b28F1        ; if mask bit set, skip alignment fix
+        LDA a38          ; otherwise, clear LSB for even alignment
+        AND #$FE         ; clear lowest bit
+        STA a38          ; update pointer low-byte
+        JMP j28F7        ; return to main scanner loop
+
+b28F1   LDA a38        ; load address high byte into A (current pointer page)
+        ORA #$01       ; set bit0 to ensure odd alignment when needed
+        STA a38        ; store adjusted high byte back to a38 for alignment
+j28F7   LDY #$00       ; initialize Y index to 0 for pointer dereference
+        LDA (p38),Y    ; fetch low byte of target pointer from address p38
+        CLC            ; clear carry for addition
+        ADC #$3A       ; add low-byte offset (0x3A) to pointer low
+        STA a32        ; store resulting low byte into a32 (dispatch table low)
+        INY            ; increment Y to fetch high byte
+        LDA (p38),Y    ; fetch high byte of target pointer
+        ADC #$29       ; add high-byte offset (0x29) plus any carry
+        STA a33        ; store resulting high byte into a33 (dispatch table high)
+        LDX #$FF       ; set X = -1 to start reverse search through buffer
+        JSR s3A84      ; call scanner helper to compare buffer at p2B and p32
+        BNE b2910      ; if not matched (Zero flag clear), branch to b2910
+        SEC            ; on match, set Carry for return status = success
+        RTS            ; return to caller
+
+;--------------------------------------------------
+; Section b2910–j2933: Adjust lookup pointer and loop back
+;--------------------------------------------------
+
+b2910   BCS b2924        ; if previous compare set carry (>=), use forward adjustment
+        SEC               ; clear carry for subtraction sequence
+        LDA a38           ; load Y-offset high byte of current pointer
+        SBC #$02          ; subtract 2 to move lookup window backward
+        STA a2938         ; store adjusted high byte
+        LDA a39           ; load Y-offset low byte
+        SBC #$00          ; subtract 0 (no change), maintain low byte
+        STA a2939         ; store adjusted low byte
+        JMP j2933         ; jump to common loop continuation
+
+b2924   CLC               ; clear carry for addition sequence
+        LDA a38           ; load Y-offset high byte
+        ADC #$02          ; add 2 to move lookup window forward
+        STA a2936         ; store adjusted high byte
+        LDA a39           ; load low byte
+        ADC #$00          ; add 0 (no change to low)
+        STA a2937         ; store adjusted low byte
+
+j2933   JMP j28BA         ; re-enter lookup loop at b28BA
+
+; ----------------------------------------------------------------------------
+; Offset Tables and Dispatch Vector for Tokens $00–$7F (0–127)
+; ----------------------------------------------------------------------------
+
+; --- Offset Tables (a2936–a2938) ---
+a2936   .BYTE $00        ; Table X low-byte
+        .BYTE $00        ; Table X high-byte
+
+a2937   .BYTE $00        ; Table Y low-byte
+        .BYTE $00        ; Table Y high-byte
+
+a2938   .BYTE $00        ; Flags / count low-byte
+        .BYTE $00        ; Flags / count high-byte
+
+; --- Lookup Entries (a2939) ---
+; Each entry provides X,Y offsets for token lengths 0–3
+; Defines 64 entries for tokens $00–$3F before dispatch vector
+
+a2939   .BYTE $00,$01,$02,$00,$60,$01,$74,$02  ; entries 0–3  
+        .BYTE $00,$60,$05,$7D,$00,$7D,$09,$7D  ; entries 4–7
+        .BYTE $00,$7D,$0C,$0D,$00,$FF,$0C,$58  ; entries 8–11
+        .BYTE $0D,$00,$57,$0C,$5A,$0D,$00,$7E  ; entries 12–15
+        .BYTE $0C,$5A,$60,$0D,$00,$7E,$0C,$5F  ; entries 16–19
+        .BYTE $0D,$00,$5F,$0C,$60,$0D,$00,$60  ; entries 20–23
+        .BYTE $0C,$70,$0D,$00,$7D,$0D,$00,$6C  ; entries 24–27
+        .BYTE $0E,$00,$60,$0E,$5F,$00,$5F,$0E  ; entries 28–31
+        .BYTE $60,$00,$60,$0E,$7D,$00,$7D,$11  ; entries 32–35
+        .BYTE $7D,$00,$7D,$14,$7D,$00,$7D,$15  ; entries 36–39
+        .BYTE $7D,$00,$7D,$1C,$00,$FE,$2B,$2C  ; entries 40–43
+        .BYTE $00,$64,$2B,$55,$65,$2C,$00,$64  ; entries 44–47
+        .BYTE $2B,$62,$13,$2C,$00,$63,$2B,$62  ; entries 48–51
+        .BYTE $2C,$00,$63,$2B,$65,$2C,$00,$64  ; entries 52–55
+        .BYTE $2D,$7D,$00,$7D,$2F,$00,$5B,$30  ; entries 56–59
+        .BYTE $00,$5B,$31,$00,$5B,$32,$00,$5B  ; entries 60–63
+        .BYTE $33,$00,$5B,$34,$00,$5C,$35,$00  ; entries 64–67
+        .BYTE $5C,$35,$36,$00,$5C,$36,$00,$5C  ; entries 68–71
+        .BYTE $37,$00,$5C,$37,$36,$00,$5C,$37  ; entries 72–75
+        .BYTE $39,$00,$5C,$38,$00,$5C,$38,$36  ; entries 76–79
+        .BYTE $00,$5C,$39,$00,$5C,$3A,$00,$5C  ; entries 80–83
+        .BYTE $3B,$2B,$55,$2C,$00,$61,$3B,$4B  ; entries 84–87
+        .BYTE $2B,$55,$2C,$00,$61,$3B,$4E,$00  ; entries 88–91
+        .BYTE $61,$3C,$2B,$55,$2C,$00,$61,$3C  ; entries 92–95
+        .BYTE $4B,$2B,$55,$2C,$00,$61,$3C,$4E  ; entries 96–99
+        .BYTE $00,$61,$3D,$0C,$70,$0D,$00,$67  ; entries 100–103
+        .BYTE $3D,$3D,$70,$00,$54,$3E,$0C,$70  ; entries 104–107
+        .BYTE $0D,$00,$68,$40,$66,$00,$69,$41  ; entries 108–111
+        .BYTE $0C,$1C,$00,$6A,$41,$0C,$70,$1C  ; entries 112–115
+        .BYTE $00,$6A,$42,$0C,$70,$0D,$00,$6D  ; entries 116–119
+        .BYTE $43,$74,$00,$6E,$44,$1B,$66,$00  ; entries 120–123
+        .BYTE $66,$45,$1C,$00,$66,$46,$1C,$00  ; entries 124–127
+
+
+; ----------------------------------------------------------------------------
+; Dispatch Vector for Tokens $40–$7F (64–127): one JMP per code
+; Maps each token value to its handler routine
+; ----------------------------------------------------------------------------
+
+        ; $40 '@'  (64)
+        JMP j3472   ; Handle '@'
+        ; $41 'A'  (65)
+        JMP j3489   ; Handle 'A'
+        ; $42 'B'  (66)
+        JMP j7324   ; Handle 'B'
+        ; $43 'C'  (67)
+        JMP j30B3   ; Handle 'C'
+        ; $44 'D'  (68)
+        JMP j2F76   ; Default/unused
+        ; $45 'E'  (69)
         JMP j2F76
-
-        JMP j2F76
-
+        ; $46 'F'  (70)
         JMP j64F0
-
+        ; $47 'G'  (71)
         JMP j64F0
-
+        ; $48 'H'  (72)
         JMP j2F76
-
+        ; $49 'I'  (73)
         JMP j2F76
-
+        ; $4A 'J'  (74)
         JMP j2F76
-
+        ; $4B 'K'  (75)
         JMP j3134
-
+        ; $4C 'L'  (76)
         JMP j3458
-
+        ; $4D 'M'  (77)
         JMP j3458
-
+        ; $4E 'N'  (78)
         JMP j3458
-
+        ; $4F 'O'  (79)
         JMP j724F
-
+        ; $50 'P'  (80)
         JMP j73AA
-
+        ; $51 'Q'  (81)
         JMP j306F
-
+        ; $52 'R'  (82)
         JMP j7425
-
+        ; $53 'S'  (83)
         JMP j2F76
-
+        ; $54 'T'  (84)
         JMP j2F76
-
+        ; $55 'U'  (85)
         JMP j2F76
-
+        ; $56 'V'  (86)
         JMP j7911
-
+        ; $57 'W'  (87)
         JMP j790D
-
+        ; $58 'X'  (88)
         JMP j2F76
-
+        ; $59 'Y'  (89)
         JMP j7375
-
+        ; $5A 'Z'  (90)
         JMP j33C1
-
-        JMP j33C6
-
-        JMP j33CB
-
-        JMP j33D0
-
-        JMP j33D5
-
-        JMP j33DA
-
-        JMP j33DF
-
-        JMP j33DF
-
-        JMP j33DF
-
-        JMP j33DF
-
-        JMP j33DF
-
+        ; $5B '['  (91)
         JMP j33E9
-
+        ; $5C '\' (92)
         JMP j33E4
-
-        JMP j33E4
-
+        ; $5D ']'  (93)
         JMP j33E9
-
-        JMP j33E9
-
+        ; $5E '^'  (94)
         JMP j2F76
-
+        ; $5F '_'  (95)
         JMP j343B
-
+        ; $60 '`'  (96)
         JMP j2F76
-
-        JMP j2F76
-
-        JMP j343B
-
-        JMP j2F76
-
+        ; $61 'a'  (97)
         JMP j5B27
-
+        ; $62 'b'  (98)
         JMP j5957
-
+        ; $63 'c'  (99)
         JMP j5B8E
-
+        ; $64 'd' (100)
         JMP j5BF5
-
+        ; $65 'e' (101)
         JMP j2F8F
-
+        ; $66 'f' (102)
         JMP j2F89
-
+        ; $67 'g' (103)
         JMP j6B04
-
+        ; $68 'h' (104)
         JMP j6B62
-
+        ; $69 'i' (105)
         JMP j2F76
-
+        ; $6A 'j' (106)
         JMP j6A7D
-
+        ; $6B 'k' (107)
         JMP j6ABA
-
+        ; $6C 'l' (108)
         JMP j5893
-
+        ; $6D 'm' (109)
         JMP j5860
-
+        ; $6E 'n' (110)
         JMP j6C41
-
+        ; $6F 'o' (111)
         JMP j652C
-
+        ; $70 'p' (112)
         JMP j6527
-
+        ; $71 'q' (113)
         JMP j2390
-
+        ; $72 'r' (114)
         JMP j2F76
-
+        ; $73 's' (115)
         JMP j2F7A
-
+        ; $74 't' (116)
         JMP j2F80
-
+        ; $75 'u' (117)
         JMP j223D
-
+        ; $76 'v' (118)
         JMP j2F95
-
+        ; $77 'w' (119)
         JMP j33EE
-
+        ; $78 'x' (120)
         JMP j23F3
-
+        ; $79 'y' (121)
         JMP j2428
-
+        ; $7A 'z' (122)
         JMP j2452
-
+        ; $7B '{' (123)
         JMP j247B
-
+        ; $7C '|' (124)
         JMP j321C
-
+        ; $7D '}' (125)
         JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j321C
-
-        JMP j2F76
-
-        JMP j3B67
-
-        JMP j6221
-
-        JMP j2F77
-
-        JMP j2F7D
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j3017
-
-        JMP j3472
-
-        JMP j3489
-
-        JMP j3465
-
-        JMP j774F
-
-        JMP j7749
-
-        JMP j7743
-
-        JMP j3472
-
-        JMP j3489
-
-        JMP j3465
-
-        JMP j313A
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
+        ; $7E '~' (126)
         JMP j5B6C
-
+        ; $7F DEL (127)
         JMP j5B7D
 
-        JMP j5BD4
-
-        JMP j5C09
-
-        JMP j2F83
-
-        JMP j6B93
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j312E
-
-        JMP j64D9
-
-        JMP j5B0E
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j2F76
-
-        JMP j643A
-
-        JMP j63FE
-
-        JMP j7755
-
-        JMP j63C2
-
-        JMP j2F76
-
-        JMP j638F
-
-        JMP j2F76
-
-        JMP j635C
-
-        JMP j2F76
-
-        JMP j6329
-
-        JMP j2F76
-
-        JMP j62D9
-
-        JMP j6289
-
-        JMP j2F76
-
-        JMP j662E
-
-        JMP j66D8
-
-        JMP j6683
-
-        JMP j672D
-
-        JMP j2F76
-
-        JMP j65FB
-
-        JMP j65C8
-
-        JMP j2F76
-
-        JMP j600D
-
-        JMP j6080
-
-        JMP j2F76
-
-        JMP j5FD2
-
-        JMP j5F44
-
-        JMP j5F8B
-
-        JMP j5F43
-
-        JMP j70BC
-
-        JMP j65B6
-
-        JMP j659E
-
-        JMP j65B0
-
-        JMP j7027
-
-        JMP j7014
-
-        JMP j6592
-
-        JMP j74A0
-
-        JMP j6586
-
-        JMP j751B
-
-        JMP j658C
-
-        JMP j2F76
-
-        JMP j719B
-
-        JMP j6598
-
-        JMP j65AA
-
-        JMP j6460
-
-        JMP j65A4
-
-        JMP j65BC
-
-        JMP j654F
-
-j2F76   RTS 
-
-j2F77   JMP j580A
-
-j2F7A   JMP j580A
-
-j2F7D   JMP j580A
-
-j2F80   JMP j580A
-
-j2F83   JSR s31E1
-        JMP j6A0B
-
-j2F89   JSR s31DB
-        JMP j6978
-
-j2F8F   JSR s31DB
-        JMP j697B
-
-j2F95   LDX #$0C
-b2F97   LDA a8678,X
-        STA f866B,X
-        DEX 
-        BPL b2F97
-        JSR s31D3
-        BCC b2FA6
-        RTS 
-
-b2FA6   LDA a3C
-        STA a3014
-        LDA a3D
-        STA a3015
-        LDA a59EB
-        STA a3016
-        LDA a36
-j2FB8   CMP #$2E
-        BEQ b2FEC
-        CMP #$1C
-        BEQ b2FEC
-        CMP #$21
-        BEQ b2FEC
-        CMP #$2B
-        BEQ b2FCA
-        CMP #$4E
-b2FCA   BNE b2FD5
-        JSR s31B9
-        JSR s3005
-        JMP b2FEC
-
-b2FD5   CMP #$2F
-        BCC b2FE6
-        CMP #$3D
-        BCS b2FE6
-        JSR s31B9
-        JSR s3005
-        JMP b2FEC
-
-b2FE6   JSR s3587
-        JMP j2FB8
-
-b2FEC   LDA a59EB
-        CMP a3016
-        BEQ b2FFA
-        JSR s3587
-        JMP b2FEC
-
-b2FFA   LDA a3014
-        STA a3E
-        LDA a3015
-        STA a3F
-        RTS 
+; ----------------------------------------------------------------------------
+; Dispatch Vector Tail Handlers (continuation from previous section)
+; Tokens $44–$4F and select control codes map here to their handling routines
+; ----------------------------------------------------------------------------
+
+j2F76   RTS              ; Token 0x44–0x47 default: return immediately (no-op)
+
+j2F77   JMP j580A        ; Token 0x45: error—unexpected dispatch, goto general fault handler
+j2F7A   JMP j580A        ; Token 0x46: likewise
+j2F7D   JMP j580A        ; Token 0x47: likewise
+j2F80   JMP j580A        ; Token 0x48: likewise
+
+; Special control‐sequence entries:
+j2F83   JSR s31E1        ; Token 0x49: clear storage‐class flag
+        JMP j6A0B        ; then resume compilation at post‐token handler
+
+j2F89   JSR s31DB        ; Token 0x4A: set 'extern' indicator
+        JMP j6978        ; then jump to extern‐resolution routine
+
+j2F8F   JSR s31DB        ; Token 0x4B: same as above (alias)
+        JMP j697B        ; slight variation in return path
+
+; ----------------------------------------------------------------------------
+; End of Dispatch Tail - next comes multi-byte literal and identifier parsing
+; ----------------------------------------------------------------------------
+
+;--------------------------------------------------
+; Routine j2F95 ($2F95) - Copy Literal/Identifier Bytes
+; Copies up to 12 bytes from the name buffer into a temporary buffer,
+; then normalizes the next character and checks for errors.
+;--------------------------------------------------
+j2F95   LDX #$0C        ; Set X = 12 (number of bytes to copy)
+
+b2F97   LDA a8678,X     ; Load byte from name buffer at a8678+X (last character first)
+        STA f866B,X     ; Store the byte into temp buffer at f866B+X
+        DEX             ; Decrement X to move to previous byte
+        BPL b2F97       ; Repeat until X < 0 (all 12 bytes copied)
+
+        JSR s31D3       ; Call normalization routine (e.g., test next character)
+        BCC b2FA6       ; If carry clear (no error), branch to continuation
+        RTS             ; Otherwise return (error detected)
+
+; b2FA6-b2FEC: Post-parse operator/terminator check and state save
+b2FA6   LDA a3C           ; Load low byte of saved buffer pointer
+        STA a3014         ; Save low byte to a3014
+        LDA a3D           ; Load high byte of saved buffer pointer
+        STA a3015         ; Save high byte to a3015
+        LDA a59EB         ; Load nested conditional/file state flag
+        STA a3016         ; Save state flag to a3016
+        LDA a36           ; Load current token/character code
+
+j2FB8   CMP #$2E         ; Compare to '.' (end-of-statement marker)
+        BEQ b2FEC         ; If '.', jump to common terminator handler
+        CMP #$1C         ; Compare to control code $1C (Record Separator)
+        BEQ b2FEC         ; Same handler for record separator
+        CMP #$21         ; Compare to '!' (logical NOT or operator start)
+        BEQ b2FEC         ; Handle as terminator
+        CMP #$2B         ; Compare to '+' (binary plus/operator start)
+        BEQ b2FCA        ; If '+', branch to operator setup
+        CMP #$4E         ; Compare to 'N' (start of 'NE' operator sequence)
+
+b2FCA   BNE b2FD5        ; If not one of the above, go to default continuation
+        JSR s31B9        ; Clear undefined identifier flag (reset a3217)
+        JSR s3005        ; Store identifier/constant descriptor into f8778 buffer
+        JMP b2FEC        ; Jump to common terminator handling
+
+;--------------------------------------------------
+; b2FD5 ($2FD5) - Handle identifier continuation characters
+;  Checks if current character falls within the range '/' (0x2F) to '<' (0x3C).
+;  If so, calls routines to append it to the identifier buffer and then loops to process next char.
+;--------------------------------------------------
+b2FD5   CMP #$2F        ; Compare A to '/' (start of continuation range)
+        BCC b2FE6       ; If A < '/', skip continuation handling
+        CMP #$3D        ; Compare A to '=' (one past '<')
+        BCS b2FE6       ; If A >= '=', skip continuation handling
+        JSR s31B9       ; Else: save parser state (push A=0 into error flag)
+        JSR s3005       ; Copy saved identifier chars into secondary buffer
+        JMP b2FEC       ; Jump to post-processing loop
+
+b2FE6   JSR s3587       ; No continuation: restore parser state (save A3C/A3D)
+        JMP j2FB8       ; Return to scanning loop at j2FB8
+
+;--------------------------------------------------
+; b2FEC ($2FEC) - Wait for next valid character
+;  Loops until the current character matches the saved start-of-identifier char.
+;--------------------------------------------------
+b2FEC   LDA a59EB       ; Load saved high byte of start char
+        CMP a3016       ; Compare with most recently read char
+        BEQ b2FFA       ; If equal, exit loop
+        JSR s3587       ; Otherwise, restore parser state and try again
+        JMP b2FEC       ; Loop until match
+
+;--------------------------------------------------
+; b2FFA ($2FFA) - Restore initial identifier pointers
+;  On exit from loop, update pointer registers to resume parsing after identifier.
+;--------------------------------------------------
+b2FFA   LDA a3014       ; Load saved pointer low byte
+        STA a3E         ; Restore buffer pointer low
+        LDA a3015       ; Load saved pointer high byte
+        STA a3F         ; Restore buffer pointer high
+        RTS             ; Return to caller
+;--------------------------------------------------- stopped
 
 s3005   LDY #$09
         LDX #$07
@@ -3420,6 +3411,37 @@ s3C79   CMP #$C1
         SBC #$80
 b3C84   RTS 
 
+;**** Data Table at $3C86 ****
+; Starting at address $3C86 in the compiler binary, you’ll find a large .BYTE block that holds a lookup table used by the tokenizer.
+; Each byte corresponds to a PETSCII character or control code, mapping input characters to character classes or token-start indicators.
+; The compiler uses this table to quickly classify and dispatch on characters when scanning source text.
+; For example, entries for ASCII letters map to a value indicating "identifier character", digits map to "numeric", punctuation map to specific operator tokens, and whitespace/control codes map to "skip" or "delimiter".
+; By indexing into this table with the current character’s PETSCII code, the scanner loop (s2068, s207E, etc.) can branch appropriately without long chains of CMP instructions.
+;
+; Typical layout:
+;   .BYTE $00      ; non-printable / skip
+;   .BYTE $01      ; letter
+;   .BYTE $02      ; digit
+;   .BYTE $03      ; underscore (identifier continuation)
+;   .BYTE $04      ; operator start
+;   ...
+; These values are entirely hard-coded here so the scanner is extremely fast — a single lookup and branch per character.
+;
+;**** Usage of Data Table at $3C86 ****
+; The compiler’s scanning routines index this table directly:
+; - s2068 (label j206E) loads a character via LDA (p2B),Y, then uses that byte as an index into the table to classify it.
+;   It sets up Y = PETSCII code, then LDA table,Y to fetch the class, branching on zero (end of token) or dispatching to identifier, number, or operator handlers.
+; - Likewise, s207E repeatedly fetches inputs and uses the same table for classification in a tight loop.
+; Internally, the base address $3C86 is loaded into a zero-page pointer (p2B/p2C) before entry to these routines, then each character lookup is:
+;     LDY #$00
+;     LDA (p2B),Y      ; fetch next PETSCII code
+;     LDX #<DataTable
+;     LDY #>DataTable
+;     LDA (p2B),Y,X    ; classification byte
+;     BEQ token_done
+;     ... handle specific class ...
+;
+; This direct table lookup replaces lengthy comparisons and gives the compiler a high-speed scanner.
         .BYTE $20,$00,$01,$90,$80,$80,$00,$00
         .BYTE $00,$00,$02,$0A,$AA,$AA,$A0,$00
         .BYTE $00,$00,$0A,$AA,$A0,$00,$1A,$05
