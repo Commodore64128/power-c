@@ -495,9 +495,10 @@ b21DB   PLA              ; restore original accumulator
 b21F2   LDY a21F6        ; reload length/flag into Y
         RTS              ; return to caller
 
-
+.encode petscii.upper
 a21F6   .TEXT $00
         .TEXT " *** PROGRAM TOO BIG", $0D, $00
+.endencode
 
 ;--------------------------------------------------
 ; Routine s220D ($220D) - 'Program Too Big' Error Emitter
@@ -760,8 +761,10 @@ b23B7   LDA #$0C        ; Load accumulator with token code $0C for multi-byte op
         LDA #$01        ; Load A with descriptor code $01 to terminate sequence
         JMP s21D0       ; Jump to push-and-emit name descriptor (final byte)
 
+.encode petscii.upper
         .TEXT " *"
         .TEXT "** UNDECLARED IDENTIFIER", $0D, $00
+.endencode
 
 ;--------------------------------------------------
 ; Routine j23F3 ($23F3) - Handle Primary Expression Error or Symbol Emit
@@ -1311,7 +1314,9 @@ b273F   RTS              ; return after directive handled, back to main scanner
 ;--------------------------------
 ; Define the syntax-error message string (zero-terminated)
 
+.encode petscii.upper
 .TEXT " *** SYNTAX ERROR", $0D, $00   ; Message printed on syntax error
+.endencode
 
 ;--------------------------------------------------
 ; Routine s2753 ($2753) - Syntax-Error Entry
@@ -2441,7 +2446,10 @@ b3150   LDA f866B,X
 
 b3184   RTS 
 
+.encode petscii.upper
         .TEXT "*** TOO MANY VARIABLES", $0D, $00
+.endencode
+
 s319D   LDA #$00
         STA a3217
         STA a3218
@@ -2683,7 +2691,11 @@ b3345   JMP j3251
 a3348   .BYTE $00
 a3349   .BYTE $00
 a334A   .BYTE $00
+
+.encode petscii.upper
 a334B   .TEXT $00, "*** TOO MANY VARIABLES", $0D, $00
+.endencode
+
 s3364   LDA a03FF
         CMP #$52
         BEQ b336C
@@ -2929,7 +2941,10 @@ b3531   STA a26D9
         STX a4E41
         RTS 
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL STORAGE CLASS DECLARATION", $0D, $00
+.endencode
+
 s3568   STX a26E5
         STY a26E6
 j356E   STA a26DA
@@ -3301,13 +3316,19 @@ s37E2   JMP j3BAA
 
 s37E5   JMP j3C53
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL CHARACTER: "
+.endencode
+
 a3800   .TEXT $00, $0D, $00
 j3803   LDX #$0A
         LDY #$38
         JMP j20F8
 
+.encode petscii.upper
         .TEXT " *** UNCLOSED COMMENT", $0D, $00
+.endencode
+
 s3821   STA a8678
         JSR s3C79
         STA a8782
@@ -3495,6 +3516,7 @@ b3984   LDA #$4B
         CLC 
         RTS 
 
+.encode petscii.upper
 p3988   .TEXT "AUTO", $00, $00, $00, $00, $00, "STATIC", $00, $00, $00, "EXTERN", $00, $00, $00, "REGISTER", $00, "TYPE"
         .TEXT "DEF", $00, $00, "CHAR", $00, $00, $00, $00, $00, "SHORT", $00, $00, $00, $00, "INT", $00, $00, $00, $00, $00, $00, "LONG", $00, $00, $00, $00
         .TEXT $00, "UNSIGNED", $00, "FLOAT", $00, $00, $00, $00, "DOUBLE", $00, $00, $00, "STRUCT", $00, $00, $00, "UNI"
@@ -3502,6 +3524,8 @@ p3988   .TEXT "AUTO", $00, $00, $00, $00, $00, "STATIC", $00, $00, $00, "EXTERN"
         .TEXT $00, $00, "FOR", $00, $00, $00, $00, $00, $00, "SWITCH", $00, $00, $00, "CASE", $00, $00, $00, $00, $00, "DEFAULT", $00, $00, "BR"
         .TEXT "EAK", $00, $00, $00, $00, "CONTINUE", $00, "RETURN", $00, $00, $00, "GOTO", $00, $00, $00, $00, $00, "SIZEOF"
         .TEXT $00, $00, $00, "ENTRY", $00, $00, $00, $00
+.endencode
+
 s3A84   LDY #$00
 b3A86   LDA (p2B),Y
         CMP (p32),Y
@@ -4716,7 +4740,10 @@ b4B47   BEQ b4B50
 b4B50   LDA #$4F
         RTS 
 
+.encode petscii.upper
         .TEXT " *** INTEGER CONSTANT TOO BIG", $0D, $00
+.endencode
+
 j4B72   LDX #$03
         STX a4BB6
         LDX a31
@@ -4785,7 +4812,10 @@ b4BE6   JSR j3BAA
 b4BF1   LDA #$52
         RTS 
 
+.encode petscii.upper
         .TEXT " *** STRING TOO LONG", $0D, $00
+.endencode
+
 j4C0A   LDA #$00
         STA a8679
         LDA #$27
@@ -5333,7 +5363,10 @@ b509D   STX a26DD
         STX a4E40
         RTS 
 
+.encode petscii.upper
         .TEXT " *** TOO MANY VARIABLES", $0D, $00
+.endencode
+
 s50C2   JSR s692A
         BCC b50E0
         LDA a26DD
@@ -5622,8 +5655,11 @@ j52FC   LDX #$03
         LDY #$53
         JMP j20F8
 
+.encode petscii.upper
         .TEXT " *"
         .TEXT "** SYNTAX ERROR", $0D, $00
+.endencode
+
 b5316   JSR s52F6
         CMP #$20
         BEQ b5316
@@ -5752,8 +5788,11 @@ b53DF   DEX
 
 b53E5   JMP j52FC
 
+.encode petscii.upper
 p53E8   .TEXT "INCLUDE", $00, "DEFINE", $00, $00, "UNDEF", $00, $00, $00, "IF", $00, $00, $00, $00, $00, $00, "IFDEF", $00, $00, $00
         .TEXT "IFNDEF", $00, $00, "ELSE", $00, $00, $00, $00, "ENDIF", $00, $00, $00, "LINE", $00, $00, $00, $00
+.endencode
+
 a5430   .TEXT $00
 a5431   .TEXT $00
 a5432   .BYTE $00
@@ -5919,7 +5958,10 @@ b5556   LDA aB400,Y
         INC a1B
 b5577   RTS 
 
+.encode petscii.upper
         .TEXT " *** TOO MANY DEFINES", $0D, $00
+.endencode
+
 j558F   LDA a59EA
         BNE b5597
         JMP j5A09
@@ -6018,9 +6060,12 @@ s5650   LDX #$79
         LDY #$56
         JMP j562D
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL CONSTANT EXPRESSION", $0D, $00, " *** I"
         .TEXT "LLEGAL INITIALIZATION", $0D, $00, " *** ILLEGAL USE "
         .TEXT "OF '"
+.endencode 
+
 a56AB   .TEXT $00
 a56AC   .BYTE $00
 a56AD   .BYTE $00
@@ -6481,7 +6526,10 @@ s5A1B   JSR j3BAA
         LDY #$5A
         JMP j20F8
 
+.encode petscii.upper
         .TEXT " *** SYNTAX ERROR", $0D, $00
+.endencode
+
 b5A44   JSR j3C53
         LDX #$00
 b5A49   JSR j3BAA
@@ -6609,7 +6657,10 @@ b5B38   JSR s56B2
         JSR s21D3
         RTS 
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL 'IF' EXPRESSION", $0D, $00
+.endencode
+
 j5B6C   LDA #$57
         JSR s21D3
         JSR s5AFB
@@ -6642,7 +6693,10 @@ b5B9F   JSR s56B2
         JSR s21D3
         RTS 
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL 'WHILE' EXPRESSION", $0D, $00
+.endencode
+
 j5BD4   LDA #$63
         JSR s21D3
         JSR s5A7A
@@ -6722,7 +6776,10 @@ b5C6D   LDA #$15
         STA (p2B),Y
 b5C7D   RTS 
 
+.encode petscii.upper
         .TEXT " *** VALUE MUST BE ARITHMETIC", $0D, $00
+.endencode
+
 s5C9D   JSR s5C44
         CMP #$01
         BEQ b5CA7
@@ -7717,7 +7774,10 @@ b64AC   LDX #$C0
         LDA #$00
         JMP s6286
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL ASSIGNMENT", $0D, $00
+.endencode
+
 j64D9   RTS 
 
 j64DA   JSR s5604
@@ -8370,7 +8430,10 @@ s69B2   LDA a14
         STX a6975
         RTS 
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL 'FOR' CONDITION", $0D, $00
+.endencode
+
 j69F3   JSR j5B0E
 j69F6   LDA a14
         STA a6973
@@ -8442,7 +8505,10 @@ b6A90   JSR s6960
         LDA #$01
         JMP s6960
 
+.encode petscii.upper
         .TEXT " *** NO ENCLOSING LOOP OR SWITCH", $0D, $00
+.endencode
+
 j6ABA   LDA #$63
         JSR s6960
         JSR s5AA8
@@ -8457,8 +8523,11 @@ b6ACD   JSR s6960
         JSR s6960
         RTS 
 
+.encode petscii.upper
         .TEXT " *** NO ENCLOSING LOOP"
         .TEXT $0D, $00
+.endencode
+
 s6AEE   SEC 
         LDA #$59
         SBC #$04
@@ -8821,7 +8890,10 @@ j6DC1   LDX #$C8
         LDY #$6D
         JMP j20F8
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL MACRO USE", $0D, $00
+.endencode
+
 s6DE0   LDX #$78
         LDY #$86
         JSR j6D7D
@@ -9073,9 +9145,12 @@ b6FAB   CMP #$0B
 
 j6FBF   JMP j6F77
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL FUNCTION DECLA"
         .TEXT "RATION", $0D, $00, " *** ILLEGAL A"
         .TEXT "RRAY DECLARATION", $0D, $00
+.endencode
+
 s7005   JMP s21D3
 
 s7008   JMP s24CE
@@ -9145,7 +9220,10 @@ b707F   LDA #$00
         JSR s5704
         RTS 
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL FUNCTION CALL", $0D, $00
+.endencode
+
 j70BC   JSR s58B3
         BCC b70C7
         JSR s2502
@@ -9230,7 +9308,10 @@ b7175   JSR j700B
         JSR j700B
         RTS 
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL SUBSCRIPT", $0D, $00
+.endencode
+
 j719B   JSR s58B3
         BCC b71A3
         JMP j5649
@@ -9305,7 +9386,10 @@ b7227   LDA #$09
         JSR j700B
         RTS 
 
+.encode petscii.upper
 a7232   .TEXT $00, " *** NOT A STRUCT OR UNION", $0D, $00
+.endencode
+
 j724F   JSR s58B3
         BCC b7257
         JMP j5649
@@ -9339,8 +9423,11 @@ j7294   JSR s7008
         LDA #$01
         JMP j700B
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL INDI"
         .TEXT "RECTION", $0D, $00
+.endencode
+
 j72B6   JSR s58B3
         BCC b72BE
         JMP j5649
@@ -9734,8 +9821,11 @@ j75E4   LDX #$EB
         LDY #$75
         JMP j562D
 
+.encode petscii.upper
         .TEXT " *** ILLEGAL INC"
         .TEXT "REMENT OR DECREMENT", $0D, $00
+.endencode
+
 s7610   JMP s21D3
 
 j7613   LDA a7738
