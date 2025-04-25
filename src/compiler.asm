@@ -2242,214 +2242,234 @@ b2FFA   LDA a3014       ; Load saved pointer low byte
         LDA a3015       ; Load saved pointer high byte
         STA a3F         ; Restore buffer pointer high
         RTS             ; Return to caller
-;--------------------------------------------------- stopped
 
-s3005   LDY #$09
-        LDX #$07
-b3009   LDA f866B,X
-        STA f8778,Y
-        DEY 
-        DEX 
-        BPL b3009
-        RTS 
+; Routine s3005 ($3005) - Block copy from f866B to f8778
+; Copies 8 bytes from source buffer f866B downwards into destination f8778 upwards
+
+s3005   LDY #$09        ; set Y = 9 (destination index: will decrement from 9 to 0)
+        LDX #$07        ; set X = 7 (source index: will decrement from 7 to 0)
+b3009   LDA f866B,X     ; load A = f866B + X  (fetch source byte)
+        STA f8778,Y     ; store A into f8778 + Y  (write to destination)
+        DEY             ; Y-- (move to next lower destination offset)
+        DEX             ; X-- (move to next lower source offset)
+        BPL b3009       ; if X>=0, loop to copy next byte
+        RTS             ; return when all 8 bytes copied
 
 a3014   .BYTE $00
 a3015   .BYTE $00
 a3016   .BYTE $00
-j3017   JSR s31BF
-        BCS b301F
-        JSR s692A
-b301F   BCC b3027
-        JSR s3140
-        JMP j4E45
 
-b3027   LDA a26DD
-        BNE b303B
-        LDA a26DA
-        CMP #$01
-        BNE b3038
-        LDA #$02
-        STA a26DA
-b3038   JMP j303E
+j3017   JSR s31BF        ; call subroutine s31BF (check branch flags)
+        BCS b301F        ; if Carry Set, branch to error handling at b301F
+        JSR s692A        ; else, call s692A to skip whitespace and fetch next token
+b301F   BCC b3027        ; if Carry Clear from s692A (valid token), continue to normal flow
+        JSR s3140        ; otherwise, on error, call s3140 to prepare error context and copy buffer
+        JMP j4E45        ; then jump to j4E45 to emit the error token sequence and return to parser
 
-b303B   LDA a864D
-j303E   STA a58A4
-        LDA a26D9
-        PHA 
-        LDA #$04
-        STA a26D9
-        LDX a26DD
-        BEQ b305A
-b304F   DEX 
-        LDA a864D,X
-        INX 
-        STA a864D,X
-        DEX 
-        BNE b304F
-b305A   LDA #$0A
-        STA a864D
-        INC a26DD
-        JSR s3140
-        JSR s4E4B
-        PLA 
-        STA a26D9
-        JMP j57B2
+; Label b3027 ($3027) - Error state reset for nested directive/continuation
+b3027   LDA a26DD        ; load nested-directive counter (non-zero means still inside nested directive)
+        BNE b303B        ; if inside nested directive, skip error-state reset
+        LDA a26DA        ; load current error flag/state
+        CMP #$01         ; compare to 'initial error' state (1)
+        BNE b3038        ; if not in initial error state, skip updating
+        LDA #$02         ; load 'recovered error' state code (2) for continued parsing
+        STA a26DA        ; store updated error state
+b3038   JMP j303E        ; jump to common continuation point j303E
 
-j306F   LDY a35
-        LDX a34
-        BNE b3076
-        DEY 
-b3076   DEX 
-        STX a2B
-        STY a2C
-        LDY #$00
-        LDA (p2B),Y
-        CMP #$7B
-        BNE b30B0
-        LDA a36
-        CMP #$0E
+; Error-recovery: restore saved buffer bytes and resume compilation at j57B2
+b303B   LDA a864D        ; Load low byte of saved pointer into A
+j303E   STA a58A4        ; Store low byte into error-save field a58A4
+        LDA a26D9        ; Load saved descriptor index/length
+        PHA              ; Push it onto stack for later restoration
+        LDA #$04         ; Descriptor code for error sequence start
+        STA a26D9        ; Update descriptor index for error output
+        LDX a26DD        ; Load count of bytes to restore (saved index)
+        BEQ b305A        ; If zero, nothing to restore, skip loop
+b304F   DEX              ; Decrement restore index
+        LDA a864D,X      ; Fetch byte from buffer at offset X
+        INX              ; Increment X for correct destination index
+        STA a864D,X      ; Restore byte back into buffer at new position
+        DEX              ; Decrement X to original position for loop
+        BNE b304F        ; Continue until all saved bytes restored
+b305A   LDA #$0A         ; Load default descriptor code for resume
+        STA a864D        ; Store descriptor at buffer start
+        INC a26DD        ; Increment saved-byte count (adjust state)
+        JSR s3140        ; Move restored buffer into output descriptor stream
+        JSR s4E4B        ; Emit error message for recovery action
+        PLA              ; Pull original descriptor index from stack
+        STA a26D9        ; Restore descriptor index/length
+        JMP j57B2        ; Jump back to main parsing loop
+
+j306F   LDY a35         ; Load saved dispatch pointer high byte (page)
+        LDX a34         ; Load saved dispatch pointer low  byte (offset)
+        BNE b3076       ; If low-byte ≠ 0, skip adjusting high-byte
+        DEY             ; Otherwise, decrement high-byte (wrap-around adjustment)
+b3076   DEX             ; Decrement low-byte of pointer
+        STX a2B         ; Set lookup pointer low-byte = X
+        STY a2C         ; Set lookup pointer high-byte = Y
+        LDY #$00        ; Initialize Y=0 for buffer read
+        LDA (p2B),Y     ; Fetch next input character from buffer
+        CMP #$7B        ; Compare to '{' (block-start indicator)
+        BNE b30B0       ; If not '{', branch to default handler
+        LDA a36         ; Load current token code
+        CMP #$0E        ; Compare to token IDs (0x0E, 0x19, 0x07)
         BEQ b308F
         CMP #$19
         BEQ b308F
         CMP #$07
-b308F   BNE b30A5
-        LDY #$00
-        LDA #$14
-        STA (p34),Y
-        INY 
-        LDA #$7C
-        STA (p34),Y
-        INC a34
-        BNE b30A2
-        INC a35
-b30A2   JMP j5F43
+b308F   BNE b30A5      ; If token not a recognized block prefix, skip emit
+        LDY #$00        ; Prepare to write descriptor header
+        LDA #$14        ; Descriptor length/header byte for block-start
+        STA (p34),Y     ; Emit header byte
+        INY             ; Advance to payload position
+        LDA #$7C        ; Descriptor code for '{' block-start
+        STA (p34),Y     ; Emit payload byte
+        INC a34         ; Advance output pointer low-byte
+        BNE b30A2       ; If no wrap, skip
+        INC a35         ; On wrap, advance high-byte
+b30A2   JMP j5F43      ; Jump into block parsing routine
 
-b30A5   LDA a2B
-        STA a34
-        LDA a2C
-        STA a35
-        JMP j6080
+; b30A5: Restore scan pointer registers and jump to statement handler
+b30A5   LDA a2B         ; Load low byte of scan pointer
+        STA a34         ; Store it back into a34 (X of saved pointer)
+        LDA a2C         ; Load high byte of scan pointer
+        STA a35         ; Store it back into a35 (Y of saved pointer)
+        JMP j6080       ; Continue parsing at j6080 (statement evaluator)
 
-b30B0   JMP j72E6
+; b30B0: Handle unexpected '{' without a matching '}' or invalid block
+b30B0   JMP j72E6       ; Jump to error handler j72E6 (unbalanced brace)
 
-j30B3   LDY a35
-        LDX a34
-        BNE b30BA
-        DEY 
-b30BA   DEX 
-        STX a2B
-        STY a2C
-        LDY #$00
-        LDA (p2B),Y
-        CMP #$77
-        BNE b30E0
-        JSR s30E3
-        BCC b30CF
-        JMP j5F43
+    ;--------------------------------------------------
+    ; j30B3 ($30B3) - Handle 'W' token (e.g., WHILE keyword)
+    ;--------------------------------------------------
+j30B3   LDY a35        ; Load high byte of current buffer pointer
+        LDX a34        ; Load low byte of buffer pointer into X
+        BNE b30BA      ; If low byte != 0, skip wrap adjustment
+        DEY            ; On wrap from $00, decrement high byte
+b30BA   DEX            ; Decrement X if no wrap or after adjustment
+        STX a2B        ; Store adjusted low byte into pointer p2B
+        STY a2C        ; Store adjusted high byte into pointer p2C
+        LDY #$00       ; Reset index Y to 0 for peek
+        LDA (p2B),Y    ; Load first character from input buffer
+        CMP #$77       ; Compare to PETSCII 'w' (start of WHILE)
+        BNE b30E0      ; Not 'w'? branch to handle general identifier
+        JSR s30E3      ; Check full keyword length and context
+        BCC b30CF      ; If carry clear (valid WHILE), branch to emit keyword
+        JMP j5F43      ; Else, treat as ordinary identifier
 
-b30CF   LDA a2B
-        STA a34
-        LDA a2C
-        STA a35
-        JSR s5C9D
-        JSR s5CFA
-        JMP j6329
+;--------------------------------------------------
+; Handler at b30CF: Save/restore buffer pointers and dispatch to subroutines
+;--------------------------------------------------
+b30CF   LDA a2B       ; Load low byte of current input pointer into A
+        STA a34       ; Save low byte into a34 for later restoration
+        LDA a2C       ; Load high byte of current input pointer into A
+        STA a35       ; Save high byte into a35 for later restoration
+        JSR s5C9D     ; Call subroutine to parse sub-expression or handle complex token
+        JSR s5CFA     ; Call subroutine to finalize emission of parsed token/result
+        JMP j6329    ; Jump to main evaluation continuation at j6329
 
-b30E0   JMP j72B6
+; Fallback for unmatched case at b30E0
+b30E0   JMP j72B6    ; Jump to default parsing routine when no match at b30CF
 
-s30E3   LDA a36
-        CMP #$22
-        BEQ b30FB
-        CMP #$06
-        BEQ b30FB
-        CMP #$1D
-        BEQ b30FB
-        CMP #$23
-        BEQ b30FB
-        CMP #$1F
-        BEQ b30FB
-        CMP #$25
-b30FB   BEQ b310F
-        CMP #$24
-        BEQ b310F
-        CMP #$1E
-        BEQ b310F
-        CMP #$10
-        BEQ b310F
-        CMP #$14
-        BEQ b310F
-        CMP #$0E
-b310F   BEQ b3117
-        CMP #$19
-        BEQ b3117
-        CMP #$07
-b3117   BEQ b311B
-        CLC 
-        RTS 
+; is-this one of these special tokens? test. carry flag 
+s30E3   LDA a36       ; load current token/character into A
+        CMP #$22      ; compare to '"' (start of string or special sequence)
+        BEQ b30FB     ; if match, jump to label b30FB
+        CMP #$06      ; compare to token code 06 (e.g., another special prefix)
+        BEQ b30FB     ; if match, handle same as above
+        CMP #$1D      ; compare to token code 1D
+        BEQ b30FB     ; branch on match
+        CMP #$23      ; compare to token code 23
+        BEQ b30FB     ; branch on match
+        CMP #$1F      ; compare to token code 1F
+        BEQ b30FB     ; branch on match
+        CMP #$25      ; compare to token code 25
+b30FB   BEQ b310F    ; any of the preceding matches will jump here
+        CMP #$24      ; compare to token code 24
+        BEQ b310F     ; branch on match
+        CMP #$1E      ; compare to token code 1E
+        BEQ b310F     ; branch on match
+        CMP #$10      ; compare to token code 10
+        BEQ b310F     ; branch on match
+        CMP #$14      ; compare to token code 14
+        BEQ b310F     ; branch on match
+        CMP #$0E      ; compare to token code 0E
+b310F   BEQ b3117    ; branch on match
+        CMP #$19      ; compare to token code 19
+        BEQ b3117     ; branch on match
+        CMP #$07      ; compare to token code 07
+b3117   BEQ b311B    ; branch on match
+        CLC           ; clear carry (no special case matched)
+        RTS           ; return from subroutine if none matched
 
-b311B   LDY #$00
-        LDA #$09
-        STA (p34),Y
-        INY 
-        LDA #$7C
-        STA (p34),Y
-        INC a34
-        BNE b312C
-        INC a35
-b312C   SEC 
-        RTS 
+; b311B – Emit 2-byte operator descriptor and return with carry set
+b311B   LDY #$00         ; Y = 0: start writing at offset 0 in output buffer
+        LDA #$09         ; A = 0x09: descriptor code for this operator
+        STA (p34),Y      ; store descriptor code at (p34 + Y)
+        INY              ; Y = 1: move to next byte
+        LDA #$7C         ; A = 0x7C: secondary descriptor or delimiter
+        STA (p34),Y      ; store 0x7C at (p34 + 1)
+        INC a34          ; advance low byte of output pointer
+        BNE b312C        ; if no wrap, skip high-byte bump
+        INC a35          ; on wrap from $FF→$00, bump high byte of pointer
+b312C   SEC              ; set carry flag = 1 (signal "true" or success)
+        RTS              ; return to caller
 
-j312E   JSR s31E1
-        JMP j69F3
+j312E   JSR s31E1       ; Clear storage-class override flag (a3219 = 0)
+        JMP j69F3        ; Jump to end-of-statement handler (emit trailer, cleanup)
 
-j3134   JSR s31E1
-        JMP j69F6
+j3134   JSR s31E1       ; Clear storage-class override flag (a3219 = 0)
+        JMP j69F6        ; Jump to 'end-declaration' handler (post-decl cleanup)
 
-j313A   JSR s58C7
-        JMP j3209
+j313A   JSR s58C7       ; Normalize current token/character (uppercase conversion & control-skip)
+        JMP j3209        ; Return to main parser entry (reset name-scan flag a321B)
 
-s3140   LDY #$00
-        JSR s3A97
-        STA (p3A),Y
-        INY 
-        LDA a48
-        STA (p3A),Y
-        LDX #$07
-        LDY #$09
-b3150   LDA f866B,X
-        STA (p3A),Y
-        DEY 
-        DEX 
-        BPL b3150
-        LDY #$0A
-        LDA a44
-        STA (p3A),Y
-        INY 
-        LDA a45
-        STA (p3A),Y
-        LDA a3A
-        STA a16
-        LDA a3B
-        STA a17
-        CLC 
-        LDA a3A
-        ADC #$0C
-        STA a3A
-        BCC b3184
-        INC a3B
-        LDA a3B
-        CMP #$D8
-        BNE b3184
-        LDX #$85
+;  packages up the current identifier into the compiler’s code buffer as a 
+; fixed‐length (12‐byte) descriptor and updates the write pointer.
+
+s3140   ; Routine: Emit symbol descriptor and update output pointer
+        LDY #$00      ; Initialize Y offset to 0 for buffer write
+        JSR s3A97     ; Fetch next descriptor byte (e.g., flags) into A
+        STA (p3A),Y   ; Store descriptor byte at buffer p3A + Y
+        INY           ; Increment buffer offset to 1
+        LDA a48       ; Load low byte of return/address pointer
+        STA (p3A),Y   ; Store low address byte at buffer p3A + 1
+        LDX #$07      ; Set X = 7 to copy 8 bytes of relocation info
+        LDY #$09      ; Set Y = 9 as destination offset for relocation array
+b3150   LDA f866B,X   ; Load relocation info byte from workspace f866B + X
+        STA (p3A),Y   ; Store it into buffer at p3A + Y
+        DEY           ; Decrement destination offset
+        DEX           ; Decrement source index
+        BPL b3150     ; Repeat until X < 0 (8 bytes copied)
+        LDY #$0A      ; Set Y = 10 for symbol pointer storage
+        LDA a44       ; Load low byte of symbol address pointer
+        STA (p3A),Y   ; Store low symbol pointer at buffer p3A + 10
+        INY           ; Y = 11
+        LDA a45       ; Load high byte of symbol address pointer
+        STA (p3A),Y   ; Store high symbol pointer at buffer p3A + 11
+        LDA a3A       ; Load current output buffer low pointer
+        STA a16       ; Save low pointer into temp a16
+        LDA a3B       ; Load current output buffer high pointer
+        STA a17       ; Save high pointer into temp a17
+        CLC           ; Clear carry for addition
+        LDA a3A       ; Load pointer low byte
+        ADC #$0C      ; Advance pointer by header size (12 bytes)
+        STA a3A       ; Store updated low pointer
+        BCC b3184     ; If no carry, skip high-byte adjust
+        INC a3B       ; Increment high pointer on carry
+        LDA a3B       ; Reload high pointer
+        CMP #$D8      ; Check against buffer limit ($D8)
+        BNE b3184     ; If within limits, continue normally
+        LDX #$85      ; Overflow: prepare return to j20F8 ($8531)
         LDY #$31
-        JMP j20F8
-
-b3184   RTS 
+        JMP j20F8     ; Jump back into main scanner loop
+b3184   RTS           ; Return from s3140
 
 .encode petscii.upper
         .TEXT "*** TOO MANY VARIABLES", $0D, $00
 .endencode
 
+; s319D – Reset all scanner/parser state flags to zero before start
 s319D   LDA #$00
         STA a3217
         STA a3218
@@ -2458,13 +2478,17 @@ s319D   LDA #$00
         STA a321B
         JMP j68B5
 
+; j31B1 – Set single error flag (carry state) and jump to syntax-error handler
 j31B1   LDA #$01
         STA a3217
         JMP j6938
 
+; s31B9 – Clear error state flag for next parsing operation
 s31B9   LDA #$00
         STA a3217
-        RTS 
+        RTS
+
+; stopped
 
 s31BF   CLC 
         LDA a3217
