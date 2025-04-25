@@ -411,10 +411,10 @@ b2183   JSR ROM_CHRIN    ; read character from input channel into A
         STA f7C31,Y      ; null-terminate the string
         LDA f7C31       ; peek first character of the line
         CMP #$30        ; compare to '0' (PETSCII $30)
-        BEQ b21A5       ; if '0', treat as special case
+        BNE b21A5       ; if '0', treat as special case
         LDA a7C32
         CMP #$30        ; check ROM GET buffer first byte
-        BEQ b21A5       ; if '0', special case
+        BNE b21A5       ; if '0', special case
         CLC
         JMP j212D       ; normal return: restore echo and interrupts
 
@@ -1396,7 +1396,7 @@ s27E4   STX a280B       ; save low-byte of rotation word
         STA a280D       ; clear rotation-bit accumulator
         LDX #$08       ; loop for 8 bits (one byte width)
 
-b27F1   ASL a280C       ; shift high-byte left, MSB -> carry
+b27F1   ASL             ; shift high-byte left, MSB -> carry
         ROL a280D       ; rotate carry into LSB of accumulator
         ASL a280B       ; shift low-byte left, carry->high byte
         BCC b2803       ; if no carry from low-byte, skip overflow handling
@@ -1414,9 +1414,9 @@ b2803   DEX             ; decrement bit counter
 
 ; Data scratch bytes for shift routine
 
-a280B:	.BYTE $00	; scratch high-order accumulator (initially 0)
-a280C:	.BYTE $00	; scratch mid-order accumulator (initially 0)
-a280D:	.BYTE $00	; scratch low-order accumulator (initially 0)
+a280B	.BYTE $00	; scratch high-order accumulator (initially 0)
+a280C	.BYTE $00	; scratch mid-order accumulator (initially 0)
+a280D	.BYTE $00	; scratch low-order accumulator (initially 0)
 
 ;--------------------------------------------------
 ; Routine s280E ($280E) – Rotate/Multi-Precision Shift Setup
@@ -1606,13 +1606,9 @@ j2933   JMP j28BA         ; re-enter lookup loop at b28BA
 
 ; --- Offset Tables (a2936–a2938) ---
 a2936   .BYTE $00        ; Table X low-byte
-        .BYTE $00        ; Table X high-byte
-
 a2937   .BYTE $00        ; Table Y low-byte
-        .BYTE $00        ; Table Y high-byte
-
 a2938   .BYTE $00        ; Flags / count low-byte
-        .BYTE $00        ; Flags / count high-byte
+
 
 ; --- Lookup Entries (a2939) ---
 ; Each entry provides X,Y offsets for token lengths 0–3
@@ -1824,10 +1820,36 @@ a2939   .BYTE $00,$01,$02,$00,$60,$01,$74,$02  ; entries 0–3
         JMP j7375
         ; $5A 'Z'  (90)
         JMP j33C1
+
+        JMP j33C6
+
+        JMP j33CB
+
+        JMP j33D0
+
+        JMP j33D5
+
+        JMP j33DA
+
+        JMP j33DF
+
+        JMP j33DF
+
+        JMP j33DF
+
+        JMP j33DF
+
+        JMP j33DF
+
         ; $5B '['  (91)
         JMP j33E9
         ; $5C '\' (92)
         JMP j33E4
+
+        JMP j33E4
+
+        JMP j33E9
+
         ; $5D ']'  (93)
         JMP j33E9
         ; $5E '^'  (94)
@@ -1836,6 +1858,13 @@ a2939   .BYTE $00,$01,$02,$00,$60,$01,$74,$02  ; entries 0–3
         JMP j343B
         ; $60 '`'  (96)
         JMP j2F76
+
+        JMP j2F76
+
+        JMP j343B
+
+        JMP j2F76
+
         ; $61 'a'  (97)
         JMP j5B27
         ; $62 'b'  (98)
@@ -1894,10 +1923,193 @@ a2939   .BYTE $00,$01,$02,$00,$60,$01,$74,$02  ; entries 0–3
         JMP j321C
         ; $7D '}' (125)
         JMP j2F76
+
+   JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j321C
+
+        JMP j2F76
+
+        JMP j3B67
+
+        JMP j6221
+
+        JMP j2F77
+
+        JMP j2F7D
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j3017
+
+        JMP j3472
+
+        JMP j3489
+
+        JMP j3465
+
+        JMP j774F
+
+        JMP j7749
+
+        JMP j7743
+
+        JMP j3472
+
+        JMP j3489
+
+        JMP j3465
+
+        JMP j313A
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
         ; $7E '~' (126)
         JMP j5B6C
         ; $7F DEL (127)
         JMP j5B7D
+
+      JMP j5BD4
+
+        JMP j5C09
+
+        JMP j2F83
+
+        JMP j6B93
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j312E
+
+        JMP j64D9
+
+        JMP j5B0E
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j2F76
+
+        JMP j643A
+
+        JMP j63FE
+
+        JMP j7755
+
+        JMP j63C2
+
+        JMP j2F76
+
+        JMP j638F
+
+        JMP j2F76
+
+        JMP j635C
+
+        JMP j2F76
+
+        JMP j6329
+
+        JMP j2F76
+
+        JMP j62D9
+
+        JMP j6289
+
+        JMP j2F76
+
+        JMP j662E
+
+        JMP j66D8
+
+        JMP j6683
+
+        JMP j672D
+
+        JMP j2F76
+
+        JMP j65FB
+
+        JMP j65C8
+
+        JMP j2F76
+
+        JMP j600D
+
+        JMP j6080
+
+        JMP j2F76
+
+        JMP j5FD2
+
+        JMP j5F44
+
+        JMP j5F8B
+
+        JMP j5F43
+
+        JMP j70BC
+
+        JMP j65B6
+
+        JMP j659E
+
+        JMP j65B0
+
+        JMP j7027
+
+        JMP j7014
+
+        JMP j6592
+
+        JMP j74A0
+
+        JMP j6586
+
+        JMP j751B
+
+        JMP j658C
+
+        JMP j2F76
+
+        JMP j719B
+
+        JMP j6598
+
+        JMP j65AA
+
+        JMP j6460
+
+        JMP j65A4
+
+        JMP j65BC
+
+        JMP j654F
 
 ; ----------------------------------------------------------------------------
 ; Dispatch Vector Tail Handlers (continuation from previous section)
